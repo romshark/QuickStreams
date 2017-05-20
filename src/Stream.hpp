@@ -45,9 +45,6 @@ protected slots:
 	// handles failure stream propagation from subordinate streams
 	void handleFailureStreamPropagation(Stream* failureStream);
 
-	// handleFailed handles cases when a superordinate stream failed
-	void handleEventEmitted(QString name, QVariant data);
-
 	// awakes this stream when a superordinate stream is closed
 	void awake(QVariant data = QVariant());
 
