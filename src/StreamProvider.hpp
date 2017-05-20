@@ -7,14 +7,14 @@
 
 namespace streams {
 
-class Streams : public QObject {
+class StreamProvider : public QObject {
 	Q_OBJECT
 
 protected:
 	QQmlEngine* _engine;
 
 public:
-	explicit Streams(QQmlEngine* engine, QObject* parent = nullptr);
+	explicit StreamProvider(QQmlEngine* engine, QObject* parent = nullptr);
 	Q_INVOKABLE Stream* create(const QJSValue& target);
 
 	//TODO: implement
