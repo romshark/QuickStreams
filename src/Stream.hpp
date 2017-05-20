@@ -9,13 +9,13 @@
 #include <QMetaType>
 #include <QSet>
 
-namespace streams {
+namespace quickstreams {
 
 class Streams;
 
 class Stream : public QObject {
 	Q_OBJECT
-	friend class Streams;
+	friend class StreamProvider;
 
 protected:
 	QQmlEngine* _engine;
@@ -93,6 +93,6 @@ public:
 	Q_INVOKABLE Stream* failure(const QJSValue& target);
 };
 
-} // streams
+} // quickstreams
 
-Q_DECLARE_METATYPE(streams::Stream*)
+Q_DECLARE_METATYPE(quickstreams::Stream*)

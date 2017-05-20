@@ -7,7 +7,7 @@
 #include <QtQml>
 #include <QMetaObject>
 
-streams::Stream::Stream(
+quickstreams::Stream::Stream(
 	QQmlEngine* engine,
 	const QJSValue& function,
 	QObject* parent
@@ -50,13 +50,16 @@ streams::Stream::Stream(
 	)
 {}
 
-void streams::Stream::emitEvent(const QString& name, const QVariant& data) {
+void quickstreams::Stream::emitEvent(
+	const QString& name,
+	const QVariant& data
+) {
 	// dead channels can't emit any events
 	if(_dead) return;
 	eventEmitted(name, data);
 }
 
-void streams::Stream::emitClosed(const QVariant& data) {
+void quickstreams::Stream::emitClosed(const QVariant& data) {
 	// dead channels can't be closed
 	if(_dead) return;
 	// reset trial counter on success
@@ -72,7 +75,7 @@ void streams::Stream::emitClosed(const QVariant& data) {
 	_dead = true;
 }
 
-void streams::Stream::emitFailed(const QVariant& data) {
+void quickstreams::Stream::emitFailed(const QVariant& data) {
 	// dead channels can't fail
 	if(_dead) return;
 	_currentTrial++;
@@ -89,7 +92,7 @@ void streams::Stream::emitFailed(const QVariant& data) {
 	_dead = true;
 }
 
-bool streams::Stream::verifyErrorListed(const QVariant& err) const {
+bool quickstreams::Stream::verifyErrorListed(const QVariant& err) const {
 	for(
 		QVariantList::const_iterator itr(_retryErrSamples.constBegin());
 		itr != _retryErrSamples.constEnd();
@@ -98,14 +101,14 @@ bool streams::Stream::verifyErrorListed(const QVariant& err) const {
 	return false;
 }
 
-streams::Stream* streams::Stream::createSubsequentStream(
+quickstreams::Stream* quickstreams::Stream::createSubsequentStream(
 	const QJSValue& callback
 ) const {
 	if(callback.isCallable()) {
 		// create new streams to wrap function objects
 		return new Stream(_engine, callback);
 	} else if(
-		callback.toVariant().userType() == qMetaTypeId<streams::Stream*>()
+		callback.toVariant().userType() == qMetaTypeId<quickstreams::Stream*>()
 	) {
 		// other streams are simply connected
 		return qjsvalue_cast<Stream*>(callback);
@@ -115,7 +118,7 @@ streams::Stream* streams::Stream::createSubsequentStream(
 	return new Stream(_engine, QJSValue());
 }
 
-void streams::Stream::handleFailureStreamPropagation(Stream* failureStream) {
+void quickstreams::Stream::handleFailureStreamPropagation(Stream* failureStream) {
 	connect(
 		this, &Stream::failed,
 		failureStream, &Stream::awake,
@@ -125,7 +128,7 @@ void streams::Stream::handleFailureStreamPropagation(Stream* failureStream) {
 	propagateFailureStream(failureStream);
 }
 
-void streams::Stream::awake(QVariant data) {
+void quickstreams::Stream::awake(QVariant data) {
 	_dead = false;
 	// if function is not callable the stream is considered closed
 	if(!_function.isCallable()) {
@@ -142,7 +145,7 @@ void streams::Stream::awake(QVariant data) {
 	}
 }
 
-void streams::Stream::awakeFromEvent(QString name, QVariant data) {
+void quickstreams::Stream::awakeFromEvent(QString name, QVariant data) {
 	// verify that this event is one of those
 	// which this stream is listening for
 	if(!_observedEvents.contains(name)) return;
@@ -150,15 +153,15 @@ void streams::Stream::awakeFromEvent(QString name, QVariant data) {
 	awake(data);
 }
 
-void streams::Stream::handleAwaitClosed(QVariant data) {
+void quickstreams::Stream::handleAwaitClosed(QVariant data) {
 	emitClosed(data);
 }
 
-void streams::Stream::handleAwaitFailed(QVariant reason) {
+void quickstreams::Stream::handleAwaitFailed(QVariant reason) {
 	emitFailed(reason);
 }
 
-streams::Stream* streams::Stream::retry(
+quickstreams::Stream* quickstreams::Stream::retry(
 	const QVariant& samples,
 	const QJSValue& maxTrials
 ) {
@@ -179,13 +182,13 @@ streams::Stream* streams::Stream::retry(
 	return this;
 }
 
-streams::Stream* streams::Stream::repeat(const QJSValue& condition) {
+quickstreams::Stream* quickstreams::Stream::repeat(const QJSValue& condition) {
 	if(!condition.isCallable()) return this;
 	_repeatCondition = condition;
 	return this;
 }
 
-streams::Stream* streams::Stream::next(const QJSValue& target) {
+quickstreams::Stream* quickstreams::Stream::next(const QJSValue& target) {
 	Stream* stream(createSubsequentStream(target));
 	// when this stream closes - awake the next
 	connect(
@@ -202,7 +205,7 @@ streams::Stream* streams::Stream::next(const QJSValue& target) {
 	return stream;
 }
 
-streams::Stream* streams::Stream::event(
+quickstreams::Stream* quickstreams::Stream::event(
 	const QVariant& name,
 	QJSValue target
 ) {
@@ -220,7 +223,7 @@ streams::Stream* streams::Stream::event(
 	return stream;
 }
 
-streams::Stream* streams::Stream::failure(const QJSValue& target) {
+quickstreams::Stream* quickstreams::Stream::failure(const QJSValue& target) {
 	Stream* stream(createSubsequentStream(target));
 	// when this stream failed - awake the failure stream
 	handleFailureStreamPropagation(stream);
@@ -228,7 +231,7 @@ streams::Stream* streams::Stream::failure(const QJSValue& target) {
 }
 
 static void registerQmlTypes() {
-    qmlRegisterInterface<streams::Stream>("Stream");
+    qmlRegisterInterface<quickstreams::Stream>("Stream");
 }
 
 Q_COREAPP_STARTUP_FUNCTION(registerQmlTypes)

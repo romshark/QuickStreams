@@ -5,7 +5,7 @@
 #include <QQmlEngine>
 #include <QJSValue>
 
-namespace streams {
+namespace quickstreams {
 
 class StreamProvider : public QObject {
 	Q_OBJECT
@@ -26,4 +26,4 @@ public:
 	*/
 };
 
-} // streams
+} // quickstreams

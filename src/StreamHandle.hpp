@@ -5,7 +5,7 @@
 #include <QString>
 #include <QVariant>
 
-namespace streams {
+namespace quickstreams {
 
 class Stream;
 
@@ -59,4 +59,4 @@ public:
 	Q_INVOKABLE bool isAwaiting() const;
 };
 
-} // streams
+} // quickstreams
