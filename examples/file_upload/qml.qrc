@@ -1,0 +1,8 @@
+<RCC>
+    <qresource prefix="/">
+        <file>main.qml</file>
+        <file>FilesystemMock.qml</file>
+        <file>Helper.qml</file>
+        <file>ListDelegate.qml</file>
+    </qresource>
+</RCC>
