@@ -10,42 +10,78 @@
 quickstreams::Stream::Stream(
 	QQmlEngine* engine,
 	const QJSValue& function,
+	Type type,
+	Belonging belonging,
 	QObject* parent
 ) :
 	QObject(parent),
 	_engine(engine),
-	_dead(true),
+	_type(type),
+	_state(State::Dead),
+	_belonging(belonging),
 	_function(function),
+	_parent(nullptr),
+	_nextType(NextType::None),
 	_maxTrials(-2),
 	_currentTrial(0),
 	_handle(
-		// when stream is requested to emit an event
-		[this](const QString& name, const QVariant& data) mutable {
+		// Called when stream is requested to emit an event
+		[this](const QString& name, const QVariant& data) {
 			emitEvent(name, data);
 		},
-		// when stream is requested to close
-		[this](const QVariant& reason) mutable {
-			emitClosed(reason);
+		// Called when stream is requested to close
+		[this](const QVariant& data) {
+			emitClosed(data);
 		},
-		// when stream is requested to fail
-		[this](const QVariant& reason) mutable {
-			emitFailed(reason);
+		// Called when stream is requested to fail
+		[this](const QVariant& reason) {
+			emitFailed(reason, WakeCondition::Default);
 		},
-		// when stream is requested to await another stream
-		[this](const QVariant& stream) mutable {
-			if(!stream.canConvert<Stream*>()) return false;
-			Stream* streamToAwait(stream.value<Stream*>());
+		// Called when stream is requested to wrap another stream
+		[this](const QVariant& target) {
+			if(!target.canConvert<Stream*>()) return false;
+			auto stream(target.value<Stream*>());
 			connect(
-				streamToAwait, &Stream::failed,
+				stream, &Stream::failed,
 				this, &Stream::handleAwaitFailed,
 				Qt::QueuedConnection
 			);
 			connect(
-				streamToAwait, &Stream::closed,
+				stream, &Stream::closed,
 				this, &Stream::handleAwaitClosed,
 				Qt::QueuedConnection
 			);
 			return true;
+		},
+		// Called when stream is requested to adopt another stream
+		[this](const QVariant& target) {
+			// If target is invalid then create a new stream
+			Stream* stream;
+			if(target.canConvert<Stream*>()) {
+				stream = target.value<Stream*>();
+			} else {
+				stream = new Stream(
+					_engine,
+					QJSValue(),
+					Type::Atomic,
+					Belonging::Bound
+				);
+			}
+			// Acquire full ownership
+			stream->setParentStream(this);
+			return stream;
+		},
+		// Called when stream reference is requested
+		[this]() {
+			return this;
+		},
+		// Called when isAbortable is requested
+		[this]() {
+			return this->isAbortable();
+		},
+		// Called when isAborted is requested
+		[this]() {
+			return this->isAborted();
 		}
 	)
 {}
@@ -54,42 +90,81 @@ void quickstreams::Stream::emitEvent(
 	const QString& name,
 	const QVariant& data
 ) {
-	// dead channels can't emit any events
-	if(_dead) return;
+	// Dead channels can't emit any events
+	if(_state == State::Dead) return;
 	eventEmitted(name, data);
 }
 
 void quickstreams::Stream::emitClosed(const QVariant& data) {
-	// dead channels can't be closed
-	if(_dead) return;
-	// reset trial counter on success
+	// Dead channels can't be closed
+	if(_state == State::Dead) return;
+
+	// Reset trial counter on success
 	_currentTrial = 0;
-	// check whether repeat is desired
-	QJSValue result(_repeatCondition.call());
+
+	// Check whether repeat is desired
+	QJSValue result(_repeatCondition.call({
+		QJSValue(isAborted())
+	}));
+
 	if(result.isBool() && result.toBool() == true) {
-		QMetaObject::invokeMethod(this, "awake", Qt::QueuedConnection);
+		// Repeat asynchronously resurrecting this stream in another tick
+		QMetaObject::invokeMethod(
+			this, "awake",
+			Qt::QueuedConnection,
+			Q_ARG(QVariant, data),
+			Q_ARG(
+				quickstreams::Stream::WakeCondition,
+				quickstreams::Stream::WakeCondition::Default
+			)
+		);
 		return;
 	}
-	// otherwise close this stream
-	closed(data);
-	_dead = true;
+
+	// If there is no next stream but this stream was aborted
+	// the abortion recovery stream should be invoked next.
+	// Otherwise execute the subsequent bound stream
+	// with the condition that its state is initially 'Aborted'
+	if(_state == State::Aborted) {
+		switch(_nextType) {
+		case NextType::Bound:
+			closed(data, WakeCondition::Abort);
+			return;
+		default:
+			aborted(data, WakeCondition::Default);
+			return;
+		}
+	}
+
+	// Otherwise close this stream initializing the next stream
+	closed(data, WakeCondition::Default);
+	_state = State::Dead;
 }
 
-void quickstreams::Stream::emitFailed(const QVariant& data) {
-	// dead channels can't fail
-	if(_dead) return;
+void quickstreams::Stream::emitFailed(
+	const QVariant& data,
+	WakeCondition wakeCondition
+) {
+	// Dead channels can't fail
+	if(_state == State::Dead) return;
 	_currentTrial++;
-	// check whether retrial is desired
+	// Check whether retrial is desired
 	if(
 		(_maxTrials < 0 || _currentTrial <= _maxTrials)
 		&& verifyErrorListed(data)
 	) {
-		QMetaObject::invokeMethod(this, "awake", Qt::QueuedConnection);
+		// Retry asynchronously
+		QMetaObject::invokeMethod(
+			this, "awake",
+			Qt::QueuedConnection,
+			Q_ARG(QVariant, data),
+			Q_ARG(quickstreams::Stream::WakeCondition, wakeCondition)
+		);
 		return;
 	}
-	// otherwise fail this stream
-	failed(data);
-	_dead = true;
+	// Otherwise fail this stream and invoke failure recovery stream
+	failed(data, WakeCondition::Default);
+	_state = State::Dead;
 }
 
 bool quickstreams::Stream::verifyErrorListed(const QVariant& err) const {
@@ -101,35 +176,108 @@ bool quickstreams::Stream::verifyErrorListed(const QVariant& err) const {
 	return false;
 }
 
-quickstreams::Stream* quickstreams::Stream::createSubsequentStream(
-	const QJSValue& callback
-) const {
-	if(callback.isCallable()) {
-		// create new streams to wrap function objects
-		return new Stream(_engine, callback);
-	} else if(
-		callback.toVariant().userType() == qMetaTypeId<quickstreams::Stream*>()
-	) {
-		// other streams are simply connected
-		return qjsvalue_cast<Stream*>(callback);
-	}
+quickstreams::Stream* quickstreams::Stream::subsequentStream(
+	const QJSValue& target,
+	Type streamType,
+	Belonging belonging
+) {
+	Stream* stream;
+	if(target.isCallable()) {
+		// Create new streams to wrap function objects
+		stream = new Stream(_engine, target, streamType, belonging);
+	} else if(target.toVariant().canConvert<Stream*>()) {
+		// Passed streams are connected
+		stream = qjsvalue_cast<Stream*>(target);
 
-	// in all other cases create a new stream with a null funtion
-	return new Stream(_engine, QJSValue());
+		// Take ownership to prevent free execution
+		stream->_belonging = belonging;
+	} else {
+		// In all other cases create a new stream with a null function
+		stream = new Stream(_engine, QJSValue(), streamType, belonging);
+	}
+	return stream;
 }
 
-void quickstreams::Stream::handleFailureStreamPropagation(Stream* failureStream) {
+void quickstreams::Stream::setParentStream(Stream *parentStream) {
+	// Remember parent stream for automatic inheritance
+	_parent = parentStream;
+
+	// Immediately react to parents abortion
+	connect(
+		_parent, &Stream::abortChildren,
+		this, &Stream::handleParentAbortion,
+		Qt::DirectConnection
+	);
+}
+
+void quickstreams::Stream::connectSubsequent(Stream* stream) {
+	// Receive failure and abortion stream propagation signals
+	// during the declaration
+	connect(
+		stream, &Stream::propagateFailureStream,
+		this, &Stream::registerFailureRecoveryStream,
+		Qt::DirectConnection
+	);
+	connect(
+		stream, &Stream::propagateAbortionStream,
+		this, &Stream::registerAbortionRecoveryStream,
+		Qt::DirectConnection
+	);
+
+	// When this stream closes - awake the attached stream
+	connect(
+		this, &Stream::closed,
+		stream, &Stream::awake,
+		Qt::QueuedConnection
+	);
+
+	// Automatically inherit parent stream
+	if(_parent) stream->setParentStream(_parent);
+}
+
+void quickstreams::Stream::initialize() {
+	if(_belonging != Belonging::Free) return;
+	awake(QVariant(), WakeCondition::Default);
+}
+
+void quickstreams::Stream::registerFailureRecoveryStream(
+	Stream* failureStream
+) {
+	// Asynchronously awake failure recovery stream if this stream fails
 	connect(
 		this, &Stream::failed,
 		failureStream, &Stream::awake,
 		Qt::QueuedConnection
 	);
-	// propagate failure stream to superordinate streams
+
+	// Propagate failure stream to superordinate streams
 	propagateFailureStream(failureStream);
 }
 
-void quickstreams::Stream::awake(QVariant data) {
-	_dead = false;
+void quickstreams::Stream::registerAbortionRecoveryStream(
+	Stream* abortionStream
+) {
+	// Asynchronously awake abortion recovery stream if this stream is aborted
+	connect(
+		this, &Stream::aborted,
+		abortionStream, &Stream::awake,
+		Qt::QueuedConnection
+	);
+
+	// Propagate abortion stream to superordinate streams
+	propagateAbortionStream(abortionStream);
+}
+
+void quickstreams::Stream::awake(
+	QVariant data,
+	quickstreams::Stream::WakeCondition wakeCondition
+) {
+	// If the stream chain was aborted and this stream is not bound
+	// then don't wake it, redirect the execution flow
+	// to the abortion stream instead
+	_state = State::Active;
+	if(wakeCondition == WakeCondition::Abort) _state = State::Aborted;
+
 	// if function is not callable the stream is considered closed
 	if(!_function.isCallable()) {
 		emitClosed(QVariant());
@@ -139,26 +287,50 @@ void quickstreams::Stream::awake(QVariant data) {
 		_engine->toScriptValue(_handle),
 		_engine->toScriptValue(data)
 	}));
-	// if function returned an error the stream is considered failed
+
+	// If function returned an error the stream is considered failed
 	if(result.isError()) {
-		emitFailed(QVariant::fromValue<QJSValue>(result));
+		switch(_state) {
+		case State::Aborted:
+			emitFailed(
+				QVariant::fromValue<QJSValue>(result),
+				WakeCondition::Abort
+			);
+			break;
+		default:
+			emitFailed(
+				QVariant::fromValue<QJSValue>(result),
+				WakeCondition::Default
+			);
+			break;
+		}
 	}
 }
 
 void quickstreams::Stream::awakeFromEvent(QString name, QVariant data) {
-	// verify that this event is one of those
+	// Verify that this event is one of those
 	// which this stream is listening for
-	if(!_observedEvents.contains(name)) return;
-
-	awake(data);
+	// in case there is at least one observed event
+	if(_observedEvents.size() > 0 && !_observedEvents.contains(name)) return;
+	awake(data, WakeCondition::Default);
 }
 
-void quickstreams::Stream::handleAwaitClosed(QVariant data) {
+void quickstreams::Stream::handleAwaitClosed(
+	QVariant data,
+	WakeCondition wakeCondition
+) {
+	Q_UNUSED(wakeCondition)
 	emitClosed(data);
 }
 
 void quickstreams::Stream::handleAwaitFailed(QVariant reason) {
-	emitFailed(reason);
+	emitFailed(reason, WakeCondition::Default);
+}
+
+void quickstreams::Stream::handleParentAbortion() {
+	if(_state == State::Dead) return;
+	_state = State::Aborted;
+	if(_type == Type::Abortable) abortChildren();
 }
 
 quickstreams::Stream* quickstreams::Stream::retry(
@@ -171,7 +343,7 @@ quickstreams::Stream* quickstreams::Stream::retry(
 	} else {
 		_retryErrSamples.append(samples);
 	}
-	// if given amount of trials is negative, make it 0
+	// If given amount of trials is negative, make it 0
 	// because -1 stands for infinite amount of trials
 	// which is only applied when no amount of trials was set.
 	if(maxTrials.isNumber()) {
@@ -188,20 +360,19 @@ quickstreams::Stream* quickstreams::Stream::repeat(const QJSValue& condition) {
 	return this;
 }
 
-quickstreams::Stream* quickstreams::Stream::next(const QJSValue& target) {
-	Stream* stream(createSubsequentStream(target));
-	// when this stream closes - awake the next
-	connect(
-		this, &Stream::closed,
-		stream, &Stream::awake,
-		Qt::QueuedConnection
-	);
-	// receive failure stream propagation signals during the declaration
-	connect(
-		stream, &Stream::propagateFailureStream,
-		this, &Stream::handleFailureStreamPropagation,
-		Qt::DirectConnection
-	);
+quickstreams::Stream* quickstreams::Stream::attach(const QJSValue& target) {
+	//TODO: forbid declaration of multiple subsequent streams
+	_nextType = NextType::Attached;
+	auto stream(subsequentStream(target, Type::Abortable, Belonging::Attached));
+	connectSubsequent(stream);
+	return stream;
+}
+
+quickstreams::Stream* quickstreams::Stream::bind(const QJSValue& target) {
+	//TODO: forbid declaration of multiple subsequent streams
+	_nextType = NextType::Bound;
+	auto stream(subsequentStream(target, Type::Abortable, Belonging::Bound));
+	connectSubsequent(stream);
 	return stream;
 }
 
@@ -209,12 +380,14 @@ quickstreams::Stream* quickstreams::Stream::event(
 	const QVariant& name,
 	QJSValue target
 ) {
-	if(!name.canConvert<QString>()) {
-		throw;
+	auto stream(subsequentStream(target, Type::Atomic, Belonging::Attached));
+
+	// If event name is recognizable
+	if(name.canConvert<QString>()) {
+		stream->_observedEvents.insert(name.value<QString>());
 	}
-	Stream* stream(createSubsequentStream(target));
-	// when this stream emits an event - awake the subsequent stream
-	stream->_observedEvents.insert(name.value<QString>());
+
+	// When this stream emits an event - awake the subsequent stream
 	connect(
 		this, &Stream::eventEmitted,
 		stream, &Stream::awakeFromEvent,
@@ -224,10 +397,34 @@ quickstreams::Stream* quickstreams::Stream::event(
 }
 
 quickstreams::Stream* quickstreams::Stream::failure(const QJSValue& target) {
-	Stream* stream(createSubsequentStream(target));
-	// when this stream failed - awake the failure stream
-	handleFailureStreamPropagation(stream);
+	auto stream(subsequentStream(target, Type::Atomic, Belonging::Bound));
+
+	// When this stream failed - awake the failure stream
+	registerFailureRecoveryStream(stream);
 	return stream;
+}
+
+quickstreams::Stream* quickstreams::Stream::abortion(const QJSValue& target) {
+	auto stream(subsequentStream(target, Type::Atomic, Belonging::Bound));
+
+	// When this stream was aborted - awake the abortion stream
+	registerAbortionRecoveryStream(stream);
+	return stream;
+}
+
+void quickstreams::Stream::abort() {
+	if(_state == State::Dead) return;
+	_state = State::Aborted;
+	if(_type == Type::Abortable) abortChildren();
+}
+
+bool quickstreams::Stream::isAbortable() const {
+	if(_type == Type::Abortable) return true;
+	return false;
+}
+
+bool quickstreams::Stream::isAborted() const {
+	return _state == State::Aborted;
 }
 
 static void registerQmlTypes() {

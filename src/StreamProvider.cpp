@@ -3,6 +3,7 @@
 #include <QQmlEngine>
 #include <QJSValue>
 #include <QVariant>
+#include <QtQml>
 #include <QMetaObject>
 
 quickstreams::StreamProvider::StreamProvider(
@@ -16,9 +17,17 @@ quickstreams::StreamProvider::StreamProvider(
 }
 
 quickstreams::Stream* quickstreams::StreamProvider::create(
-	const QJSValue& target
+	const QJSValue& target,
+	quickstreams::Stream::Type type
 ) {
-	auto stream(new Stream(_engine, target));
-	QMetaObject::invokeMethod(stream, "awake", Qt::QueuedConnection);
+	auto stream(new Stream(_engine, target, type, Stream::Belonging::Free));
+	QMetaObject::invokeMethod(stream, "initialize", Qt::QueuedConnection);
 	return stream;
+}
+
+quickstreams::Stream::Type quickstreams::StreamProvider::Atomic() const {
+	return Stream::Type::Atomic;
+}
+quickstreams::Stream::Type quickstreams::StreamProvider::Abortable() const {
+	return Stream::Type::Abortable;
 }
