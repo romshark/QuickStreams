@@ -89,15 +89,6 @@ protected slots:
 	// Awakes this stream when a superordinate stream is closed
 	void awakeFromEvent(QString name, QVariant data = QVariant());
 
-	// Closes this stream when an awaited stream was closed
-	void handleAwaitClosed(
-		QVariant data = QVariant(),
-		WakeCondition wakeCondition = WakeCondition::Default
-	);
-
-	// Fails this stream when an awaited stream has failed
-	void handleAwaitFailed(QVariant reason = QVariant());
-
 	void handleParentAbortion();
 
 signals:

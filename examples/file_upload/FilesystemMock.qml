@@ -105,12 +105,12 @@ Item {
 
 			// Begin uploading the file chunk after chunk
 			// when the file has successfuly been allocated
-			.attach(function(stream) {
-				stream.wrap(filesystem.write({
+			.attach(function() {
+				return filesystem.write({
 					file: fileId,
 					position: uploadProgress,
 					length: args.chunkSize
-				}))
+				})
 			})
 
 			// Indefinitely retry writing chunks in case of timeout errors

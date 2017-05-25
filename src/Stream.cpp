@@ -37,22 +37,6 @@ quickstreams::Stream::Stream(
 		[this](const QVariant& reason) {
 			emitFailed(reason, WakeCondition::Default);
 		},
-		// Called when stream is requested to wrap another stream
-		[this](const QVariant& target) {
-			if(!target.canConvert<Stream*>()) return false;
-			auto stream(target.value<Stream*>());
-			connect(
-				stream, &Stream::failed,
-				this, &Stream::handleAwaitFailed,
-				Qt::QueuedConnection
-			);
-			connect(
-				stream, &Stream::closed,
-				this, &Stream::handleAwaitClosed,
-				Qt::QueuedConnection
-			);
-			return true;
-		},
 		// Called when stream is requested to adopt another stream
 		[this](const QVariant& target) {
 			// If target is invalid then create a new stream
@@ -305,6 +289,28 @@ void quickstreams::Stream::awake(
 			break;
 		}
 	}
+
+	// But if a stream was returned then wrap this stream.
+	// There's no need for this stream to acquire ownership,
+	// it's okay for the wrapped stream to execute freely.
+	else if(result.toVariant().canConvert<Stream*>()) {
+		auto stream(qjsvalue_cast<Stream*>(result));
+		connect(
+			stream, &Stream::failed,
+			this, [this](QVariant reason) {
+				emitFailed(reason, WakeCondition::Default);
+			},
+			Qt::QueuedConnection
+		);
+		connect(
+			stream, &Stream::closed,
+			this, [this](QVariant data, WakeCondition wakeCondition) {
+				Q_UNUSED(wakeCondition)
+				emitClosed(data);
+			},
+			Qt::QueuedConnection
+		);
+	}
 }
 
 void quickstreams::Stream::awakeFromEvent(QString name, QVariant data) {
@@ -313,18 +319,6 @@ void quickstreams::Stream::awakeFromEvent(QString name, QVariant data) {
 	// in case there is at least one observed event
 	if(_observedEvents.size() > 0 && !_observedEvents.contains(name)) return;
 	awake(data, WakeCondition::Default);
-}
-
-void quickstreams::Stream::handleAwaitClosed(
-	QVariant data,
-	WakeCondition wakeCondition
-) {
-	Q_UNUSED(wakeCondition)
-	emitClosed(data);
-}
-
-void quickstreams::Stream::handleAwaitFailed(QVariant reason) {
-	emitFailed(reason, WakeCondition::Default);
 }
 
 void quickstreams::Stream::handleParentAbortion() {
