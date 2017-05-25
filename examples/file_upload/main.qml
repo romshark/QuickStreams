@@ -10,10 +10,6 @@ ApplicationWindow {
 	minimumHeight: 240
 	title: qsTr('QuickStreams - File Upload Example')
 
-	Helper {
-		id: helper
-	}
-
 	// Filesystem simulator component
 	FilesystemMock {
 		id: fs

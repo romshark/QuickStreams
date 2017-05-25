@@ -19,7 +19,7 @@ Item {
 	property var allocateFile: function() {
 		console.log('FS::allocateFile > allocate file')
 		return QuickStreams.create(function(stream) {
-			helper.setTimeout(helper.randomNetLatency(), function() {
+			QuickStreams.timeout(helper.randomNetLatency(), function() {
 				var newId = helper.randomId(8)
 				console.log('FS::allocateFile > file allocated', newId)
 				stream.close(newId)
@@ -36,7 +36,7 @@ Item {
 				'at byte', arg.position,
 				'for', arg.length, 'bytes'
 			)
-			helper.setTimeout(helper.randomNetLatency(), function() {
+			QuickStreams.timeout(helper.randomNetLatency(), function() {
 				console.log('FS::write > write completed')
 				stream.close()
 			})
@@ -48,7 +48,7 @@ Item {
 	property var remove: function(fileId) {
 		return QuickStreams.create(function(stream) {
 			console.log('FS::remove > remove file', fileId, '...')
-			helper.setTimeout(helper.randomNetLatency(), function() {
+			QuickStreams.timeout(helper.randomNetLatency(), function() {
 				console.log('FS::remove > file', fileId, 'has been removed')
 				stream.close()
 			})
