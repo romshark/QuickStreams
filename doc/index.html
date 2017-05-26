@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>QuickStreams</title>
+	<!-- highlight.js -->
+	<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/
+	libs/highlight.js/9.11.0/styles/qtcreator_light.min.css">
+	<script src="//cdnjs.cloudflare.com/ajax/libs/
+	highlight.js/9.11.0/highlight.min.js"></script>
+	<script>hljs.initHighlightingOnLoad();</script>
+
+	<!-- fontawesome -->
+	<link href="http://maxcdn.bootstrapcdn.com/font-awesome/4.2.0/
+	css/font-awesome.min.css"rel="stylesheet">
+
+	<link rel="stylesheet" type="text/css" href="style.css">
+</head>
+<body>
+	<p id="main-title">QuickStreams</p>
+	<p class="subtitle">An Asynchronous Programming Library<br>
+	for the <a href="https://goo.gl/8kRfmT">QML</a> Programming Language</p>
+
+	<ul id="links-list">
+		<li class="source-link">
+			<a href="">
+				<p>download</p>
+				<p class="accent">0.1.0 (.tar)</p>
+			</a>
+		</li>
+		<li class="source-link">
+			<a href="">
+				<p>download</p>
+				<p class="accent">0.1.0 (.zip)</p>
+			</a>
+		</li>
+		<li class="source-link">
+			<a href="https://github.com/qbeon/QuickStreams">
+				<p>view on</p>
+				<p class="accent">GitHub</p>
+			</a>
+		</li>
+	</ul>
+
+	<h1>Preface</h1>
+	<div>
+		<p>
+		<a href="https://goo.gl/L65lLK">Signals & Slots</a> are an integral
+		part of the <a href="https://goo.gl/53uH3A">Qt Quick</a> architecture
+		providing a powerful low level mechanism for responsive
+		<a href="https://goo.gl/fLnigX">asynchronous programming</a>.
+		Despite the fact that Signals & Slots are a very flexible instrument
+		they're not very well suited for the declarative description of rather
+		complex asynchronous operations and
+		<a href="https://goo.gl/DVKEWR">transactions</a>.</p>
+
+		<p>To increase code readability and maintainability higher level
+		abstraction concepts like
+		<a href="https://goo.gl/KC5odw">Callbacks</a> and more sophisticated
+		concepts like <a href="https://goo.gl/gxb84g">Promises and Futures</a>
+		are used, however, those are simple, primitive concepts,
+		providing only a very limited set of features to solve only the basic
+		problems of declarative, asynchronous control flow.</p>
+
+		<p><b>QuickStreams</b> is a Qt Quick asynchronous programming library,
+		inspired by <a href="http://reactivex.io/">Reactive Extensions</a>,
+		implementing the <a href="https://goo.gl/adn5qW">
+		Reactive Programming Paradigm</a> in a slightly redesigned manner.</p>
+
+		<p>QuickStreams is based on the concepts of stream based programming
+		where everything can be - and eventually is - a stream. Stream based
+		programming allows to describe complex asynchronous operations and
+		<a href="https://goo.gl/VC9yAT">sequences</a>.</p>
+
+		<h1>Streams</h1>
+		<p class="subtitle">A stream is a stateful entity wrapping a
+		code fragment.<br>It is a black box, that once awoken
+		starts emitting events<br>until it perishes (failure),
+		dies (closure) or is killed (abortion)</p>
+		<img src="img/stream-definition.svg">
+		<ul>
+			<li><b>Closure</b> - The closure event is emitted when a stream
+			finally dies of its own, natural death. It optionally carries an
+			arbitrary set of data to be picked up by the next stream in the
+			sequence, that is to be awoken.</li>
+
+			<li><b>Failure</b> - The failure event is emitted when a stream
+			perishes due to an internal failure. It optionally carries an
+			arbitrary set of data to be picked up
+			by the failure recovery stream, to is to be awoken.</li>
+
+			<li><b>Abortion</b> - The abortion event is emitted when a stream
+			is killed due to abortion requested from the outside. It awakes
+			the abortion recovery stream if there is one.</li>
+
+			<li><b>Custom</b> - A custom event is identified by a name,
+			optionally carrying an arbitrary set of data. Streams
+			can be assigned to be awoken on the events of other streams.</li>
+		</ul>
+
+
+
+		It can
+		be in either of the following states: <b>Dead</b>, <b>Active</b>
+		or <b>Aborted</b>. Once created, it is queued for execution on the
+		next possible event loop cycle. If another stream takes it's ownership
+		the execution is deferred.
+
+		<p>Streams are created <i>free</i>
+		by default, meaning they'll execute on the next event loop cycle.
+		Streams can also be though of as a protocol for application level
+		inter process communication</p>
+	</div>
+
+	<div>
+		<h1>Sequences</h1>
+		<p>One of the fundamentals of asynchronous programming is the
+		declarative creation of asynchronous operation sequences.
+		Streams can form sequences using the <b>attach</b> operator.
+		When a stream is being closed it awakes the next attached stream
+		if there is one, passing the asynchronous result to it,
+		before finally dying.</p>
+
+		<!--<img src="stream-definition.svg">-->
+
+		<div class="code">
+		<pre><code class="javascript">asyncFunction()
+.attach(function(stream, asyncResult) {
+	console.log('result:', asyncResult)
+})</code></pre>
+		<div class="code-desc">
+			<span class="caption">Using the <b>.attach</b> operator</span>
+			<span class="lang">JavaScript</span>
+		</div>
+		</div>
+
+		<p>In the example above <b>asyncFunction</b> returns a stream.
+		Right after the function call the returned stream gets a new stream
+		attached.
+		The second stream is created by the <b>attach</b> operator out of
+		the given function, it will receive the asynchronous result as
+		<i>asyncResult</i> when the returned stream is closed and thus
+		the second is awoken.</p>
+
+		<div class="code">
+		<pre><code class="javascript">http.post('http://server.org/oranges')
+.attach(http.post('http://server.org/apples'))
+.attach(http.post('http://server.org/bananas'))
+.attach(function(stream) {
+	console.log('all 3 were posted sequentially')
+})</code></pre>
+		<div class="code-desc">
+			<span class="caption">Declaring a sequence of 4 streams</span>
+			<span class="lang">JavaScript</span>
+		</div>
+		</div>
+
+		<p>When the <b>attach</b> operator receives a stream target
+		it will acquire its ownership preventing it from executing freely,
+		thus forcing it to execute sequentially.</p>
+		
+		<p>The stream returned by the first <b>http.post</b> is not acquired
+		by any other stream thus considered a <i>free stream</i>, meaning it'll
+		awake and execute in the next event loop cycle.</p>
+
+		<div class="code">
+		<pre><code class="javascript">http.get('http://server.org/assets')
+.attach(function(stream, assets) {
+	return http.post('http://server.org/form', assets)
+})
+.attach(function(stream) {
+	console.log('successfully posted')
+})</code></pre>
+		<div class="code-desc">
+			<span class="caption">Wrapping one stream into another</span>
+			<span class="lang">JavaScript</span>
+		</div>
+		</div>
+
+		<p>It's often necessary to pass the results of one asynchronous
+		operation to the next that's attached to it.
+		This cannot be done at the time of the sequence declaration as the
+		results are yet unknown. For this case a stream can be created during
+		the execution of another stream and returned to it
+		as in the example above.</p>
+
+		<h1>Failure Recovery</h1>
+		<p>A failure recovery mechanism is an important part of the
+		asynchronous control flow. To prevent undefined behavior and
+		malfunctions caused by unexpectedly failed streams
+		QuickStreams provides the <b>failure</b> sequence operator.</p>
+
+		<div class="code">
+		<pre><code class="javascript">http.get('http://server.org/assets')
+.attach(function(stream, assets) {
+	return http.post('http://server.org/form', assets)
+})
+.attach(function(stream, postResult) {
+	console.log('successfully posted:', postResult)
+})
+.failure(function(stream, error) {
+	console.log('failure:', error)
+})</code></pre>
+		<div class="code-desc">
+			<span class="caption">Recovering from unexpected failure</span>
+			<span class="lang">JavaScript</span>
+		</div>
+		</div>
+
+		<p>The <b>failure</b> operator acts upon the entire sequence, it
+		defines the stream that is awoken if anywhere in the sequence
+		an unexpected error is thrown.</p>
+
+		<p>If in the example above any of the streams fail
+		(network might be unreachable) the sequence is broken and the stream
+		created by the <b>failure</b> operator awoken instead.</p>
+
+		<div class="code">
+		<pre><code class="javascript">http.get('http://server.org/assets')
+.attach(function(stream, assets) {
+	console.log('retrieved assets:', assets)
+})
+.failure(http.delete('http://server.org/options'))
+.attach(function(stream) {
+	console.log('failed, but managed to clean up')
+})
+.failure(function(stream, error) {
+	console.log('even cleanup failed:', error)
+})</code></pre>
+		<div class="code-desc">
+			<span class="caption">
+				Recovering from failure in 2 consecutive sequences
+			</span>
+			<span class="lang">JavaScript</span>
+		</div>
+		</div>
+
+		<p>The <b>failure</b> operator starts a new sequence which could also
+		fail and recover as in the example above.</p>
+
+		<h1>Retrial</h1>
+		<p>There are situations when certain failures are expected
+		but shouldn't necessarily break the sequence. QuickStreams offers
+		the <b>retry</b> stream operator for such cases.</p>
+
+		<p>The <b>retry</b> operator takes an array of error samples and an
+		optional number of times to retry. If a stream with the <b>retry</b>
+		operator applied - fails and the thrown error matches one of the given
+		samples, then the sequence doesn't break, instead the stream is
+		resurrected and executed again.
+
+		</p>
+
+		<div class="code">
+		<pre><code class="javascript">http.get('http://server.org/assets')
+.retry([http.Timeout], 3)
+.attach(function(stream, assets) {
+	console.log('retrieved assets:', assets)
+})
+.failure(function(stream, error) {
+	console.log('failed retrieving assets:', error)
+})</code></pre>
+		<div class="code-desc">
+			<span class="caption">
+				Recovering from an expected failure
+			</span>
+			<span class="lang">JavaScript</span>
+		</div>
+		</div>
+
+		<p>A good use case example is a network request.
+		Networks tend to be temporarily unreachable from time to time
+		and requests to it might sometimes fail (timeout). Though most of the
+		time the request should be retried for a couple of times before finally
+		giving up.</p>
+
+		<p>The above example demonstrates a similar situations, where the
+		network request is retried for 3 times on timeouts before breaking
+		the sequence and redirecting control flow to the stream provided by the
+		<b>failure</b> operator. But if the request failed nevertheless but due
+		to another error (like a 500 - Internal Server Error) the sequence will
+		break.</p>
+
+		<h1>Repetition</h1>
+		<p>Asynchronous loops are harder to describe than regular
+		synchronous ones. To avoid unreadable, pseudo-recursive, asynchronous
+		constructs QuickStreams offers the <b>repeat</b> stream operator.</p>
+
+		<p>The <b>repeat</b> operator takes a condition (a function returning
+		a boolean) and resurrects the stream it was applied on until the
+		condition returns false.</p>
+
+		<div class="code">
+		<pre><code class="javascript">var counter = 0
+
+http.get('http://server.org/assets')
+.repeat(function() {
+	counter++
+	if(counter <= 10) return true
+	return false
+})
+.attach(function(stream) {
+	console.log('repeated http.get 10 times')
+})</code></pre>
+		<div class="code-desc">
+			<span class="caption">
+				Declaring an asynchronous loop
+			</span>
+			<span class="lang">JavaScript</span>
+		</div>
+		</div>
+
+		<p>In the example above the <b>repeat</b> operator is applied on the
+		stream returned by the asynchronous http.get method. It uses the
+		context variable <i>counter</i> to keep track of the passed steps and
+		decides on each iteration whether to repeat (resurrect and execute)
+		the stream again or not.</p>
+
+
+		<h1>Events</h1>
+		<p>Besides special events such as a <b>closure</b>,
+		a <b>failure</b> or an <b>abortion</b> a stream can emit custom
+		events identified names optionally carrying arbitrary data sets.</p>
+
+		<div class="code">
+		<pre><code class="javascript">function spawnCounter() {
+	QuickStreams.create(function(mainStream) {
+		var iteration = 0
+		QuickStreams.timeout(1000, function(stream) {
+			iteration++
+			mainStream.event('update', iteration)
+			stream.close()
+		})
+		.repeat()
+	})
+}</code></pre>
+		<div class="code-desc">
+			<span class="caption">Defining a counter factory</span>
+			<span class="lang">JavaScript</span>
+		</div>
+		</div>
+
+		<p>In the example above <b>spawnCounter</b> creates a continuous stream
+		that will never close. This stream  executes an asynchronous infinite
+		loop that fires an event named <i>update</i> every 1000 milliseconds
+		carrying the number of the current iteration.</p>
+
+		<div class="code">
+		<pre><code class="javascript">var counterStream = spawnCounter()
+
+counterStream.event('update', function(stream, iteration) {
+	console.log('current iteration:', iteration)
+})
+
+counterStream.event('update', http.get('http://server.org/assets'))
+.attach(function(stream, assets) {
+	console.log('received assets:', assets)
+})
+
+</code></pre>
+		<div class="code-desc">
+			<span class="caption">Catching counter update events</span>
+			<span class="lang">JavaScript</span>
+		</div>
+		</div>
+
+		<p>The events fired by the <i>counterStream</i> created by
+		<b>spawnCounter</b> will always awake 2 new streams on every iteration.
+		</p>
+
+		<h1>Abortion</h1>
+		<p>One of the hardest asynchronous problems to deal with is abortion.
+		It's relatively hard to describe a sequence of transactions that might
+		be asked to abort at any time. Additionally there could be an
+		obligatory asynchronous clean up sequence involved making the code
+		even more complicated, hard to read and maintain.</p>
+
+		QuickStreams makes describing complex, abortable, asynchronous
+		operations easier by providing a way of building higher level
+		abstractions using the <b>Streams Paradigm</b> turning complex
+		stream sequences into abstract, higher level streams
+		using the <b>stream hierarchies</b> approach.</p>
+
+		<p>QuickStreams provides 2 types of streams: <b>Atomic Streams</b> and
+		<b>Abortable Streams</b>.</p>
+
+		</p><b>Atomic Streams</b> are indivisible and cannot be aborted,
+		whereas <b>Abortable Streams</b> are abortable during their life time.
+		Stream sequences can be thought of as abortable streams and can in
+		fact be wrapped into one.</p>
+
+		<div class="code">
+		<pre><code class="javascript">function moveDocuments(fromUri, toUri) {
+	// create and return an abortable stream
+	// representing the document movement transaction
+	return QuickStreams.create(function(mainStream) {
+		var documents = []
+		var current = -1
+
+		var sequence = mainStream.adopt(http.get(fromUri))
+		.attach(function(stream, docs) {
+			// bring the results to the main streams context
+			documents = docs
+		})
+		.attach(function(stream, docs) {
+			return http.post(toUri, documents[current])
+		})
+		.repeat(function(isSequenceAborted) {
+			current++
+
+			// stop repeating the atomic http.post stream
+			// if the sequence (moveDocuments) was aborted
+			if(isSequenceAborted) return false
+
+			if(current < documents.length) return true
+			return false
+		})
+		
+		// execute this async clean up sequence
+		// after an execution failure or an abortion
+		// before letting the moveDocuments stream die
+		function cleanup(error) {
+			http.delete(toUri)
+			.attach(function(stream) {
+				if(error) {
+					// moveDocuments failed during execution time
+					mainStream.fail({
+						execution: error,
+						cleanup: null
+					})
+				} else {
+					// moveDocuments was aborted
+					// but managed to clean up successfully
+					mainStream.close()
+				}
+			})
+			.failure(function(cleanupError) {
+				// moveDocuments unexpectedly failed
+				// during the cleanup procedure
+				mainStream.fail({
+					execution: error,
+					cleanup: cleanupError
+				})
+			})
+		}
+
+		// clean up, if moveDocuments unexpectedly failed
+		// before letting the moveDocuments stream die
+		sequence.failure(function(stream, error) {
+			cleanup(error)
+		})
+
+		// clean up, if moveDocuments was aborted
+		// before letting the moveDocuments stream die
+		sequence.abortion(function(stream) {
+			cleanup(error)
+		})
+	}, QuickStreams.Abortable)
+}</code></pre>
+		<div class="code-desc">
+			<span class="caption">
+				Defining an asynchronous, abortable transaction
+			</span>
+			<span class="lang">JavaScript</span>
+		</div>
+		</div>
+
+		<p>In the above example <b>moveDocuments</b> represents an abortable,
+		asynchronous transaction, moving documents from one host onto another.
+		It must clean up unfinished work in case of an
+		unexpected failure during its execution as well as in case of
+		an abortion.</p>
+
+		<p><b>moveDocuments</b> creates and returns an <b>Abortable Stream</b>
+		effectively representing an easy to use abstraction over the entire
+		process. The main stream acquires parentship over the underlying
+		sequence using the <b>adopt</b> stream method making the sequence
+		subordinate.</p>
+
+		<div class="code">
+		<pre><code class="javascript">var movDocStream = moveDocuments(
+	'http://one.org/documents',
+	'http://another.org/documents'
+)
+
+var sequence = movDocStream.attach(function(stream) {
+	console.log('moveDocuments successfully completed')
+})
+
+sequence.failure(function(stream, error) {
+	console.log('moveDocuments failed:', error)	
+})
+
+sequence.abortion(function(stream) {
+	console.log('moveDocuments successfully aborted')	
+})
+
+// If moveDocuments didn't complete after 50 milliseconds - abort it!
+// The abort won't do anything if the stream's already dead
+QuickStreams.timeout(50, function(stream) {
+	movDocStream.abort()
+})</code></pre>
+		<div class="code-desc">
+			<span class="caption">
+				Using the asynchronous <b>moveDocuments</b> function
+			</span>
+			<span class="lang">JavaScript</span>
+		</div>
+		</div>
+
+		<p>Using <b>moveDocuments</b> is quite simple as it's just a regular,
+		abortable stream. When the stream returned by <b>moveDocuments</b>
+		closes - the documents are successfully moved. If it's aborted or
+		fails during its execution it'll properly clean up before moving
+		control flow to one of the given streams in the above usage example.
+		</p>
+
+		<i>movDocStream</i> abstracts away the implementation providing a
+		consistent stream interface. All interaction with this stream will
+		reflect onto the underlying, subordinate sequence.</p>
+
+		<h1>Binding</h1>
+		<p>When a sequence is aborted during the execution of an atomic
+		stream - an attached stream won't be awoken when the stream's closed,
+		the control flow will be redirected to the stream defined by the
+		<b>abortion</b> sequence operator instead.</p>
+
+		<p>Sometimes such behavior is not desired. When a certain stream must
+		be invoked <b>even if</b> the sequence was aborted during the execution
+		of its atomic predecessor, the <b>bind</b> stream operator must be used
+		instead of <b>attach</b>.</p>
+
+		<div class="code">
+		<pre>
+		<code
+			class="javascript"
+		>var sequence = http.get('http://server.org/assets')
+.bind(function(stream, assets) {
+	// The log record is obligatory!
+	logger.entry('assets were received:', assets)
+})
+.attach(/* ... */)</code></pre>
+		<div class="code-desc">
+			<span class="caption">
+				Binding an obligatory stream to another stream
+			</span>
+			<span class="lang">JavaScript</span>
+		</div>
+		</div>
+		
+		<p>Even if, in the above example, the <i>sequence</i> is aborted
+		during the execution of the atomic <b>http.get</b> stream - the bound
+		stream performing the logger entry will still be awoken and executed.
+		The control flow will be redirected to the abortion stream only when
+		the bound stream is closed.</p>
+
+		<div class="code">
+		<pre>
+		<code
+			class="javascript"
+		>var sequence = http.get('http://server.org/assets')
+// The log record is obligatory!
+.bind(function(stream, assets) {
+	logger.entry('assets were received:', assets)
+})
+// the resource deletion is obligatory as well!
+.bind(http.delete('http://server.org/assets'))
+.attach(/* ... */)</code></pre>
+		<div class="code-desc">
+			<span class="caption">
+				Chaining bound streams
+			</span>
+			<span class="lang">JavaScript</span>
+		</div>
+		</div>
+
+		<p>Streams can be bound to other bound streams as well forming a chain
+		of obligatory operations. In the example above both, the logger entry
+		and the delete will execute sequentially even if the <i>sequence</i>
+		was aborted during the execution of the atomic <b>http.get</b> stream.
+		</p>
+	</div>
+</body>
+</html>
