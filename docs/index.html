@@ -20,7 +20,7 @@
 	<link rel="stylesheet" type="text/css" href="style.css">
 </head>
 <body>
-	<p id="main-title">QuickStreams</p>
+	<p id="main-title">QuickStreams <sup style="font-size: 1rem;">Beta</sup></p>
 
 	<p class="subtitle desktop">An Asynchronous Programming Library<br>for the
 	<a href="https://goo.gl/8kRfmT">QML</a> Programming Language</p>
@@ -73,8 +73,8 @@
 		implementing the <a href="https://goo.gl/adn5qW">
 		Reactive Programming Paradigm</a> in a slightly redesigned manner.</p>
 
-		<p>It's built on top of Qt Quick's Signals & Slots mechanism based on the
-		concepts of stream based, <a href="https://goo.gl/XV2uU7">
+		<p>It's built on top of Qt Quick's Signals & Slots mechanism based on
+		the concepts of stream based, <a href="https://goo.gl/XV2uU7">
 		event driven programming</a>, where everything can be
 		- and eventually is - a stream. Stream based programming allows to
 		describe complex asynchronous operations and
@@ -163,7 +163,9 @@
 			</li>
 			<li class="operator">
 				<p class="name">retry</p>
-				<p class="desc">Resurrects and reexecutes a stream on certains failures</p>
+				<p class="desc">
+					Resurrects and reexecutes a stream on certains failures
+				</p>
 			</li>
 			<li class="operator">
 				<p class="name">repeat</p>
@@ -172,11 +174,15 @@
 			</li>
 			<li class="operator">
 				<p class="name">failure</p>
-				<p class="desc">Recovers a sequence<br>from an unexpected failure</p>
+				<p class="desc">
+					Recovers a sequence<br>from an unexpected failure
+				</p>
 			</li>
 			<li class="operator">
 				<p class="name">abortion</p>
-				<p class="desc">Recovers a sequence<br>from an eventual abortion</p>
+				<p class="desc">
+					Recovers a sequence<br>from an eventual abortion
+				</p>
 			</li>
 
 			<li class="operator unimplemented">
