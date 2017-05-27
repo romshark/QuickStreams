@@ -2,9 +2,13 @@
 <html>
 <head>
 	<title>QuickStreams</title>
+	<meta
+		name="viewport"
+		content="width=device-width, initial-scale=1">
+
 	<!-- highlight.js -->
 	<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/
-	libs/highlight.js/9.11.0/styles/qtcreator_light.min.css">
+	libs/highlight.js/9.11.0/styles/vs.min.css">
 	<script src="//cdnjs.cloudflare.com/ajax/libs/
 	highlight.js/9.11.0/highlight.min.js"></script>
 	<script>hljs.initHighlightingOnLoad();</script>
@@ -17,8 +21,11 @@
 </head>
 <body>
 	<p id="main-title">QuickStreams</p>
-	<p class="subtitle">An Asynchronous Programming Library<br>
-	for the <a href="https://goo.gl/8kRfmT">QML</a> Programming Language</p>
+
+	<p class="subtitle desktop">An Asynchronous Programming Library<br>for the
+	<a href="https://goo.gl/8kRfmT">QML</a> Programming Language</p>
+	<p class="subtitle mobile">An Asynchronous Programming Library for the
+	<a href="https://goo.gl/8kRfmT">QML</a> Programming Language</p>
 
 	<ul id="links-list">
 		<li class="source-link">
@@ -69,30 +76,42 @@
 		<p>QuickStreams is based on the concepts of stream based programming
 		where everything can be - and eventually is - a stream. Stream based
 		programming allows to describe complex asynchronous operations and
-		<a href="https://goo.gl/VC9yAT">sequences</a>.</p>
+		<a href="https://goo.gl/VC9yAT">sequences</a> in a more intuitive way.
+		</p>
 
 		<h1>Streams</h1>
-		<p class="subtitle">A stream is a stateful entity wrapping a
-		code fragment.<br>It is a black box, that once awoken
-		starts emitting events<br>until it perishes (failure),
-		dies (closure) or is killed (abortion)</p>
+
+		<p class="subtitle desktop">A stream is a stateful entity wrapping a
+		code fragment.<br>It's a black box, that once awoken
+		starts emitting events<br>until it either
+		<i class="accent">perishes</i> <sup class="upper">(failure)</sup>,
+		<i class="accent">dies</i> <sup class="upper">(closure)</sup> or is
+		<i class="accent">killed</i> <sup class="upper">(abortion)</sup></p>
+
+		<p class="subtitle mobile">A stream is a stateful entity wrapping a
+		code fragment. It's a black box, that once awoken
+		starts emitting events until it either
+		<br><i class="accent">perishes</i> <sup class="upper">(failure)</sup>,
+		<br><i class="accent">dies</i> <sup class="upper">(closure)</sup><br> or is
+		<i class="accent">killed</i> <sup class="upper">(abortion)</sup></p>
+
 		<img src="img/stream-definition.svg">
-		<ul>
-			<li><b>Closure</b> - The closure event is emitted when a stream
+		<ul class="context-list">
+			<li><b>• Closure</b> - The closure event is emitted when a stream
 			finally dies of its own, natural death. It optionally carries an
 			arbitrary set of data to be picked up by the next stream in the
 			sequence, that is to be awoken.</li>
 
-			<li><b>Failure</b> - The failure event is emitted when a stream
+			<li><b>• Failure</b> - The failure event is emitted when a stream
 			perishes due to an internal failure. It optionally carries an
 			arbitrary set of data to be picked up
 			by the failure recovery stream, to is to be awoken.</li>
 
-			<li><b>Abortion</b> - The abortion event is emitted when a stream
+			<li><b>• Abortion</b> - The abortion event is emitted when a stream
 			is killed due to abortion requested from the outside. It awakes
 			the abortion recovery stream if there is one.</li>
 
-			<li><b>Custom</b> - A custom event is identified by a name,
+			<li><b>• Custom</b> - A custom event is identified by a name,
 			optionally carrying an arbitrary set of data. Streams
 			can be assigned to be awoken on the events of other streams.</li>
 		</ul>
@@ -123,14 +142,14 @@
 		<!--<img src="stream-definition.svg">-->
 
 		<div class="code">
+		<div class="code-header">
+			<span class="lang">JavaScript</span>
+			<p>Using the <b>.attach</b> operator</p>
+		</div>
 		<pre><code class="javascript">asyncFunction()
 .attach(function(stream, asyncResult) {
 	console.log('result:', asyncResult)
 })</code></pre>
-		<div class="code-desc">
-			<span class="caption">Using the <b>.attach</b> operator</span>
-			<span class="lang">JavaScript</span>
-		</div>
 		</div>
 
 		<p>In the example above <b>asyncFunction</b> returns a stream.
@@ -142,16 +161,16 @@
 		the second is awoken.</p>
 
 		<div class="code">
+		<div class="code-header">
+			<span class="lang">JavaScript</span>
+			<p>Declaring a sequence of 4 streams</p>
+		</div>
 		<pre><code class="javascript">http.post('http://server.org/oranges')
 .attach(http.post('http://server.org/apples'))
 .attach(http.post('http://server.org/bananas'))
 .attach(function(stream) {
 	console.log('all 3 were posted sequentially')
 })</code></pre>
-		<div class="code-desc">
-			<span class="caption">Declaring a sequence of 4 streams</span>
-			<span class="lang">JavaScript</span>
-		</div>
 		</div>
 
 		<p>When the <b>attach</b> operator receives a stream target
@@ -163,6 +182,10 @@
 		awake and execute in the next event loop cycle.</p>
 
 		<div class="code">
+		<div class="code-header">
+			<span class="lang">JavaScript</span>
+			<p>Wrapping one stream into another</p>
+		</div>
 		<pre><code class="javascript">http.get('http://server.org/assets')
 .attach(function(stream, assets) {
 	return http.post('http://server.org/form', assets)
@@ -170,10 +193,6 @@
 .attach(function(stream) {
 	console.log('successfully posted')
 })</code></pre>
-		<div class="code-desc">
-			<span class="caption">Wrapping one stream into another</span>
-			<span class="lang">JavaScript</span>
-		</div>
 		</div>
 
 		<p>It's often necessary to pass the results of one asynchronous
@@ -190,6 +209,10 @@
 		QuickStreams provides the <b>failure</b> sequence operator.</p>
 
 		<div class="code">
+		<div class="code-header">
+			<span class="lang">JavaScript</span>
+			<p>Recovering from unexpected failure</p>
+		</div>
 		<pre><code class="javascript">http.get('http://server.org/assets')
 .attach(function(stream, assets) {
 	return http.post('http://server.org/form', assets)
@@ -200,10 +223,6 @@
 .failure(function(stream, error) {
 	console.log('failure:', error)
 })</code></pre>
-		<div class="code-desc">
-			<span class="caption">Recovering from unexpected failure</span>
-			<span class="lang">JavaScript</span>
-		</div>
 		</div>
 
 		<p>The <b>failure</b> operator acts upon the entire sequence, it
@@ -215,6 +234,10 @@
 		created by the <b>failure</b> operator awoken instead.</p>
 
 		<div class="code">
+		<div class="code-header">
+			<span class="lang">JavaScript</span>
+			<p>Recovering from failure in 2 consecutive sequences</p>
+		</div>
 		<pre><code class="javascript">http.get('http://server.org/assets')
 .attach(function(stream, assets) {
 	console.log('retrieved assets:', assets)
@@ -226,12 +249,6 @@
 .failure(function(stream, error) {
 	console.log('even cleanup failed:', error)
 })</code></pre>
-		<div class="code-desc">
-			<span class="caption">
-				Recovering from failure in 2 consecutive sequences
-			</span>
-			<span class="lang">JavaScript</span>
-		</div>
 		</div>
 
 		<p>The <b>failure</b> operator starts a new sequence which could also
@@ -251,6 +268,10 @@
 		</p>
 
 		<div class="code">
+		<div class="code-header">
+			<span class="lang">JavaScript</span>
+			<p>Recovering from an expected failure</p>
+		</div>
 		<pre><code class="javascript">http.get('http://server.org/assets')
 .retry([http.Timeout], 3)
 .attach(function(stream, assets) {
@@ -259,12 +280,6 @@
 .failure(function(stream, error) {
 	console.log('failed retrieving assets:', error)
 })</code></pre>
-		<div class="code-desc">
-			<span class="caption">
-				Recovering from an expected failure
-			</span>
-			<span class="lang">JavaScript</span>
-		</div>
 		</div>
 
 		<p>A good use case example is a network request.
@@ -290,6 +305,10 @@
 		condition returns false.</p>
 
 		<div class="code">
+		<div class="code-header">
+			<span class="lang">JavaScript</span>
+			<p>Declaring an asynchronous loop</p>
+		</div>
 		<pre><code class="javascript">var counter = 0
 
 http.get('http://server.org/assets')
@@ -301,12 +320,6 @@ http.get('http://server.org/assets')
 .attach(function(stream) {
 	console.log('repeated http.get 10 times')
 })</code></pre>
-		<div class="code-desc">
-			<span class="caption">
-				Declaring an asynchronous loop
-			</span>
-			<span class="lang">JavaScript</span>
-		</div>
 		</div>
 
 		<p>In the example above the <b>repeat</b> operator is applied on the
@@ -322,6 +335,10 @@ http.get('http://server.org/assets')
 		events identified names optionally carrying arbitrary data sets.</p>
 
 		<div class="code">
+		<div class="code-header">
+			<span class="lang">JavaScript</span>
+			<p>Defining a counter factory</p>
+		</div>
 		<pre><code class="javascript">function spawnCounter() {
 	QuickStreams.create(function(mainStream) {
 		var iteration = 0
@@ -333,10 +350,6 @@ http.get('http://server.org/assets')
 		.repeat()
 	})
 }</code></pre>
-		<div class="code-desc">
-			<span class="caption">Defining a counter factory</span>
-			<span class="lang">JavaScript</span>
-		</div>
 		</div>
 
 		<p>In the example above <b>spawnCounter</b> creates a continuous stream
@@ -345,6 +358,10 @@ http.get('http://server.org/assets')
 		carrying the number of the current iteration.</p>
 
 		<div class="code">
+		<div class="code-header">
+			<span class="lang">JavaScript</span>
+			<p>Catching counter update events</p>
+		</div>
 		<pre><code class="javascript">var counterStream = spawnCounter()
 
 counterStream.event('update', function(stream, iteration) {
@@ -354,13 +371,7 @@ counterStream.event('update', function(stream, iteration) {
 counterStream.event('update', http.get('http://server.org/assets'))
 .attach(function(stream, assets) {
 	console.log('received assets:', assets)
-})
-
-</code></pre>
-		<div class="code-desc">
-			<span class="caption">Catching counter update events</span>
-			<span class="lang">JavaScript</span>
-		</div>
+})</code></pre>
 		</div>
 
 		<p>The events fired by the <i>counterStream</i> created by
@@ -389,6 +400,10 @@ counterStream.event('update', http.get('http://server.org/assets'))
 		fact be wrapped into one.</p>
 
 		<div class="code">
+		<div class="code-header">
+			<span class="lang">JavaScript</span>
+			<p>Defining an asynchronous, abortable transaction</p>
+		</div>
 		<pre><code class="javascript">function moveDocuments(fromUri, toUri) {
 	// create and return an abortable stream
 	// representing the document movement transaction
@@ -456,12 +471,6 @@ counterStream.event('update', http.get('http://server.org/assets'))
 		})
 	}, QuickStreams.Abortable)
 }</code></pre>
-		<div class="code-desc">
-			<span class="caption">
-				Defining an asynchronous, abortable transaction
-			</span>
-			<span class="lang">JavaScript</span>
-		</div>
 		</div>
 
 		<p>In the above example <b>moveDocuments</b> represents an abortable,
@@ -477,6 +486,10 @@ counterStream.event('update', http.get('http://server.org/assets'))
 		subordinate.</p>
 
 		<div class="code">
+		<div class="code-header">
+			<span class="lang">JavaScript</span>
+			<p>Using the asynchronous <b>moveDocuments</b> function</p>
+		</div>
 		<pre><code class="javascript">var movDocStream = moveDocuments(
 	'http://one.org/documents',
 	'http://another.org/documents'
@@ -499,12 +512,6 @@ sequence.abortion(function(stream) {
 QuickStreams.timeout(50, function(stream) {
 	movDocStream.abort()
 })</code></pre>
-		<div class="code-desc">
-			<span class="caption">
-				Using the asynchronous <b>moveDocuments</b> function
-			</span>
-			<span class="lang">JavaScript</span>
-		</div>
 		</div>
 
 		<p>Using <b>moveDocuments</b> is quite simple as it's just a regular,
@@ -530,21 +537,17 @@ QuickStreams.timeout(50, function(stream) {
 		instead of <b>attach</b>.</p>
 
 		<div class="code">
-		<pre>
-		<code
-			class="javascript"
+		<div class="code-header">
+			<span class="lang">JavaScript</span>
+			<p>Binding an obligatory stream to another stream</p>
+		</div>
+		<pre><code class="javascript"
 		>var sequence = http.get('http://server.org/assets')
 .bind(function(stream, assets) {
 	// The log record is obligatory!
 	logger.entry('assets were received:', assets)
 })
 .attach(/* ... */)</code></pre>
-		<div class="code-desc">
-			<span class="caption">
-				Binding an obligatory stream to another stream
-			</span>
-			<span class="lang">JavaScript</span>
-		</div>
 		</div>
 		
 		<p>Even if, in the above example, the <i>sequence</i> is aborted
@@ -554,9 +557,11 @@ QuickStreams.timeout(50, function(stream) {
 		the bound stream is closed.</p>
 
 		<div class="code">
-		<pre>
-		<code
-			class="javascript"
+		<div class="code-header">
+			<span class="lang">JavaScript</span>
+			<p>Chaining bound streams</p>
+		</div>
+		<pre><code class="javascript"
 		>var sequence = http.get('http://server.org/assets')
 // The log record is obligatory!
 .bind(function(stream, assets) {
@@ -565,12 +570,6 @@ QuickStreams.timeout(50, function(stream) {
 // the resource deletion is obligatory as well!
 .bind(http.delete('http://server.org/assets'))
 .attach(/* ... */)</code></pre>
-		<div class="code-desc">
-			<span class="caption">
-				Chaining bound streams
-			</span>
-			<span class="lang">JavaScript</span>
-		</div>
 		</div>
 
 		<p>Streams can be bound to other bound streams as well forming a chain
