@@ -212,6 +212,29 @@ img {
 	margin-bottom: 2rem;
 }
 
+.stream-operator-list {
+	font-size: 0rem;
+	text-align: center;
+}
+
+.operator {
+	font-size: 1rem;
+	display: inline-block;
+	width: 220px;
+	padding: .5rem;
+	box-sizing: border-box;
+}
+
+.operator.unimplemented {
+	color: #DDD;
+}
+
+.operator .name {
+	font-family: segoe_light;
+	font-size: 1.5rem;
+	font-weight: bold;
+}
+
 #links-list {
 	text-align: center;
 	margin-top: 2rem;

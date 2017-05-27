@@ -73,9 +73,11 @@
 		implementing the <a href="https://goo.gl/adn5qW">
 		Reactive Programming Paradigm</a> in a slightly redesigned manner.</p>
 
-		<p>QuickStreams is based on the concepts of stream based programming
-		where everything can be - and eventually is - a stream. Stream based
-		programming allows to describe complex asynchronous operations and
+		<p>It's built on top of Qt Quick's Signals & Slots mechanism based on the
+		concepts of stream based, <a href="https://goo.gl/XV2uU7">
+		event driven programming</a>, where everything can be
+		- and eventually is - a stream. Stream based programming allows to
+		describe complex asynchronous operations and
 		<a href="https://goo.gl/VC9yAT">sequences</a> in a more intuitive way.
 		</p>
 
@@ -90,12 +92,35 @@
 
 		<p class="subtitle mobile">A stream is a stateful entity wrapping a
 		code fragment. It's a black box, that once awoken
-		starts emitting events until it either
-		<br><i class="accent">perishes</i> <sup class="upper">(failure)</sup>,
-		<br><i class="accent">dies</i> <sup class="upper">(closure)</sup><br> or is
-		<i class="accent">killed</i> <sup class="upper">(abortion)</sup></p>
+		starts emitting events until it either <i class="accent">perishes</i>
+		(failure), <i class="accent">dies</i> (closure) or is
+		<i class="accent">killed</i> (abortion)</p>
 
 		<img src="img/stream-definition.svg">
+
+		<p class="subtitle desktop" style="margin-bottom:3rem;">
+		Almost everything can be represented by a stream.
+		<br><b>Sockets</b>, <b>Requests</b>, <b>Computations</b>,
+		<b>UI Elements</b> and more</p>
+		<p class="subtitle mobile" style="margin-bottom:3rem;">
+		Almost everything can be represented by a stream.
+		<b>Sockets</b>, <b>Requests</b>, <b>Computations</b>,
+		<b>UI Elements</b> and more</p>
+
+		<p>A stream can be in either of the following states: <b>Dead</b>,
+		<b>Active</b> or <b>Aborted</b>.
+		Once created, it's initially dead (yet not born)
+		and queued to be awoken and executed on the next possible event loop
+		cycle. If another stream takes it's ownership before it's awoken - the
+		execution is deferred until the point the owner stream is closed. This
+		way streams can form asynchronous sequences to be executed serially.</p>
+
+		<p>During it's life time a stream emits events, though some of them
+		are lethal. If a stream emits the <b>closure</b>, <b>abortion</b> or
+		<b>failure</b> events
+		- it dies, but in certain circumstances streams can be resurrected and
+		executed again.</p>
+
 		<ul class="context-list">
 			<li><b>• Closure</b> - The closure event is emitted when a stream
 			finally dies of its own, natural death. It optionally carries an
@@ -105,7 +130,7 @@
 			<li><b>• Failure</b> - The failure event is emitted when a stream
 			perishes due to an internal failure. It optionally carries an
 			arbitrary set of data to be picked up
-			by the failure recovery stream, to is to be awoken.</li>
+			by the failure recovery stream, that is to be awoken.</li>
 
 			<li><b>• Abortion</b> - The abortion event is emitted when a stream
 			is killed due to abortion requested from the outside. It awakes
@@ -116,19 +141,76 @@
 			can be assigned to be awoken on the events of other streams.</li>
 		</ul>
 
+		<h1>Operators</h1>
+		
+		<p class="subtitle desktop">Operators define the behavior<br>
+		of individual streams and sequences.</p>
+		<p class="subtitle mobile">Operators define the behavior
+		of individual streams and sequences.</p>
 
+		<ul class="stream-operator-list">
+			<li class="operator">
+				<p class="name">attach</p>
+				<p class="desc">Attaches a stream<br>onto another one</p>
+			</li>
+			<li class="operator">
+				<p class="name">bind</p>
+				<p class="desc">Binds an obligatory<br>stream to another one</p>
+			</li>
+			<li class="operator">
+				<p class="name">event</p>
+				<p class="desc">Awakes another stream<br>on a certain event</p>
+			</li>
+			<li class="operator">
+				<p class="name">retry</p>
+				<p class="desc">Resurrects and reexecutes a stream on certains failures</p>
+			</li>
+			<li class="operator">
+				<p class="name">repeat</p>
+				<p class="desc">Conditionally resurrects<br>and reexecutes
+				a stream</p>
+			</li>
+			<li class="operator">
+				<p class="name">failure</p>
+				<p class="desc">Recovers a sequence<br>from an unexpected failure</p>
+			</li>
+			<li class="operator">
+				<p class="name">abortion</p>
+				<p class="desc">Recovers a sequence<br>from an eventual abortion</p>
+			</li>
 
-		It can
-		be in either of the following states: <b>Dead</b>, <b>Active</b>
-		or <b>Aborted</b>. Once created, it is queued for execution on the
-		next possible event loop cycle. If another stream takes it's ownership
-		the execution is deferred.
-
-		<p>Streams are created <i>free</i>
-		by default, meaning they'll execute on the next event loop cycle.
-		Streams can also be though of as a protocol for application level
-		inter process communication</p>
+			<li class="operator unimplemented">
+				<p class="name">filter</p>
+				<p class="desc">Planned for<br>upcoming releases</p>
+			</li>
+			<li class="operator unimplemented">
+				<p class="name">map</p>
+				<p class="desc">Planned for<br>upcoming releases</p>
+			</li>
+			<li class="operator unimplemented">
+				<p class="name">reduce</p>
+				<p class="desc">Planned for<br>upcoming releases</p>
+			</li>
+			<li class="operator unimplemented">
+				<p class="name">throttle</p>
+				<p class="desc">Planned for<br>upcoming releases</p>
+			</li>
+			<li class="operator unimplemented">
+				<p class="name">buffer</p>
+				<p class="desc">Planned for<br>upcoming releases</p>
+			</li>
+			<li class="operator unimplemented">
+				<p class="name">delay</p>
+				<p class="desc">Planned for<br>upcoming releases</p>
+			</li>
+			<li class="operator unimplemented">
+				<p class="name">join</p>
+				<p class="desc">Planned for<br>upcoming releases</p>
+			</li>
+		</ul>
 	</div>
+
+
 
 	<div>
 		<h1>Sequences</h1>
