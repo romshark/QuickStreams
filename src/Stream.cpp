@@ -68,7 +68,18 @@ quickstreams::Stream::Stream(
 			return this->isAborted();
 		}
 	)
-{}
+{
+	connect(
+		this, &Stream::retryIteration,
+		this, &Stream::awake,
+		Qt::QueuedConnection
+	);
+	connect(
+		this, &Stream::repeatIteration,
+		this, &Stream::awake,
+		Qt::QueuedConnection
+	);
+}
 
 void quickstreams::Stream::emitEvent(
 	const QString& name,
@@ -93,15 +104,7 @@ void quickstreams::Stream::emitClosed(const QVariant& data) {
 
 	if(result.isBool() && result.toBool() == true) {
 		// Repeat asynchronously resurrecting this stream in another tick
-		QMetaObject::invokeMethod(
-			this, "awake",
-			Qt::QueuedConnection,
-			Q_ARG(QVariant, data),
-			Q_ARG(
-				quickstreams::Stream::WakeCondition,
-				quickstreams::Stream::WakeCondition::Default
-			)
-		);
+		repeatIteration(data, WakeCondition::Default);
 		return;
 	}
 
@@ -138,12 +141,7 @@ void quickstreams::Stream::emitFailed(
 		&& verifyErrorListed(data)
 	) {
 		// Retry asynchronously
-		QMetaObject::invokeMethod(
-			this, "awake",
-			Qt::QueuedConnection,
-			Q_ARG(QVariant, data),
-			Q_ARG(quickstreams::Stream::WakeCondition, wakeCondition)
-		);
+		retryIteration(data, wakeCondition);
 		return;
 	}
 	// Otherwise fail this stream and invoke failure recovery stream

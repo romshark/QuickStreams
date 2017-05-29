@@ -96,6 +96,8 @@ signals:
 	void closed(QVariant data, WakeCondition wakeCondition);
 	void failed(QVariant error, WakeCondition wakeCondition);
 	void aborted(QVariant reason, WakeCondition wakeCondition);
+	void retryIteration(QVariant data, WakeCondition wakeCondition);
+	void repeatIteration(QVariant data, WakeCondition wakeCondition);
 	void abortChildren();
 	void propagateFailureStream(Stream* failureStream);
 	void propagateAbortionStream(Stream* abortionStream);
