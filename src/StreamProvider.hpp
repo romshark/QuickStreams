@@ -22,14 +22,6 @@ public:
 		quickstreams::Stream::Type type = Stream::Type::Atomic
 	);
 
-	// Awakes a stream when the given delay passes.
-	// Either creates a new stream out of the given function or
-	// takes an existing stream claiming ownership
-	Q_INVOKABLE Stream* timeout(
-		const QJSValue& delay,
-		const QJSValue& target
-	);
-
 	quickstreams::Stream::Type Atomic() const;
 	quickstreams::Stream::Type Abortable() const;
 

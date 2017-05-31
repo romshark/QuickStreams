@@ -17,42 +17,66 @@ Item {
 	// File allocation method. Returns an atomic stream not emitting any events
 	// providing the id of the created file when closed
 	property var allocateFile: function() {
-		console.log('FS::allocateFile > allocate file')
-		return QuickStreams.create(function(stream) {
-			QuickStreams.timeout(helper.randomNetLatency(), function() {
+		// Create the main atomic stream to be returned
+		return QuickStreams.create(function(mainStream) {
+			console.log('FS::allocateFile > allocate file')
+
+			// Create the allocOperation atomic stream
+			var allocOperation = QuickStreams.create(function() {
 				var newId = helper.randomId(8)
 				console.log('FS::allocateFile > file allocated', newId)
-				stream.close(newId)
+
+				// Close the returned main stream
+				mainStream.close(newId)
 			})
-		}, QuickStreams.Atomic)
+
+			// Delay the awakening of the allocOperation stream
+			allocOperation.delay(helper.randomNetLatency())
+
+			// Make the allocOperation stream subordinate
+			// to the main stream that's returned by this function
+			mainStream.adopt(allocOperation)
+		})
 	}
 
 	// File writing method, returns an atomic stream not emitting any events.
 	// The operation is considered completed when the returned stream is closed
 	property var write: function(arg) {
-		return QuickStreams.create(function(stream) {
+		// Create the main atomic stream to be returned
+		return QuickStreams.create(function(mainStream) {
 			console.log(
 				'FS::write > write to file:', arg.file,
 				'at byte', arg.position,
 				'for', arg.length, 'bytes'
 			)
-			QuickStreams.timeout(helper.randomNetLatency(), function() {
+
+			// Create the writeOperation atomic stream,
+			// Don't worry about this stream not being closed,
+			// It won't become a zombie, because the mainStream
+			// is properly closed and will erase the adopted stream on closure
+			mainStream.adopt(QuickStreams.create(function() {
 				console.log('FS::write > write completed')
-				stream.close()
-			})
-		}, QuickStreams.Atomic)
+				mainStream.close()
+			}))
+			.delay(helper.randomNetLatency())
+		})
 	}
 
 	// File removal method, returns an atomic stream not emitting any events.
 	// The operation is considered completed when the returned stream is closed
 	property var remove: function(fileId) {
-		return QuickStreams.create(function(stream) {
+		return QuickStreams.create(function(mainStream) {
 			console.log('FS::remove > remove file', fileId, '...')
-			QuickStreams.timeout(helper.randomNetLatency(), function() {
+
+			// Return a stream during the execution of mainStream
+			// will make mainStream wrap this stream
+			// making them both become one
+			return QuickStreams.create(function() {
 				console.log('FS::remove > file', fileId, 'has been removed')
-				stream.close()
+				mainStream.close()
 			})
-		}, QuickStreams.Atomic)
+			.delay(helper.randomNetLatency())
+		})
 	}
 
 	// Abortable, continuous file upload method.

@@ -6,6 +6,7 @@
 #include <QVariant>
 #include <QtQml>
 #include <QMetaObject>
+#include <QTimer>
 
 quickstreams::Stream::Stream(
 	QQmlEngine* engine,
@@ -22,6 +23,7 @@ quickstreams::Stream::Stream(
 	_function(function),
 	_parent(nullptr),
 	_nextType(NextType::None),
+	_awakeningTimer(nullptr),
 	_maxTrials(-2),
 	_currentTrial(0),
 	_handle(
@@ -187,7 +189,7 @@ void quickstreams::Stream::setParentStream(Stream *parentStream) {
 	// Immediately react to parents abortion
 	connect(
 		_parent, &Stream::abortChildren,
-		this, &Stream::handleParentAbortion,
+		this, &Stream::abort,
 		Qt::DirectConnection
 	);
 }
@@ -254,11 +256,47 @@ void quickstreams::Stream::awake(
 	QVariant data,
 	quickstreams::Stream::WakeCondition wakeCondition
 ) {
-	// If the stream chain was aborted and this stream is not bound
-	// then don't wake it, redirect the execution flow
-	// to the abortion stream instead
-	_state = State::Active;
-	if(wakeCondition == WakeCondition::Abort) _state = State::Aborted;
+	// If the stream is supposed to delay its awakening then delay it
+	// but only if the wake condition allows it
+	if(
+		_awakeningTimer != nullptr
+		&& wakeCondition != WakeCondition::DefaultNoDelay
+		&& wakeCondition != WakeCondition::AbortNoDelay
+	) {
+		_state = State::AwaitingDelay;
+		// Change wake condition to NoDelay to prevent an infinite delay loop
+		switch(wakeCondition) {
+		case WakeCondition::Default:
+			wakeCondition = WakeCondition::DefaultNoDelay;
+			break;
+		case WakeCondition::Abort:
+			wakeCondition = WakeCondition::AbortNoDelay;
+			break;
+		}
+		QObject::disconnect(
+			_awakeningTimer, &QTimer::timeout,
+			nullptr, nullptr
+		);
+		QObject::connect(
+			_awakeningTimer, &QTimer::timeout,
+			this, [this, data, wakeCondition]() {
+				awake(data, wakeCondition);
+			}
+		);
+		_awakeningTimer->start();
+		return;
+	}
+
+	// If this stream is not yet aborted or requested to abort
+	// then mark it as active. Otherwise mark as aborted
+	if(_state != State::Aborted && (
+		wakeCondition == WakeCondition::Abort
+		|| wakeCondition == WakeCondition::AbortNoDelay
+	)) {
+		_state = State::Aborted;
+	} else if(_state == State::Dead) {
+		_state = State::Active;
+	}
 
 	// if function is not callable the stream is considered closed
 	if(!_function.isCallable()) {
@@ -319,10 +357,14 @@ void quickstreams::Stream::awakeFromEvent(QString name, QVariant data) {
 	awake(data, WakeCondition::Default);
 }
 
-void quickstreams::Stream::handleParentAbortion() {
-	if(_state == State::Dead) return;
-	_state = State::Aborted;
-	if(_type == Type::Abortable) abortChildren();
+quickstreams::Stream* quickstreams::Stream::delay(const QJSValue& duration) {
+	if(!duration.isNumber()) return this;
+	if(_awakeningTimer == nullptr) {
+		_awakeningTimer = new QTimer(this);
+	}
+	_awakeningTimer->setInterval(duration.toInt());
+	_awakeningTimer->setSingleShot(true);
+	return this;
 }
 
 quickstreams::Stream* quickstreams::Stream::retry(
@@ -405,9 +447,23 @@ quickstreams::Stream* quickstreams::Stream::abortion(const QJSValue& target) {
 }
 
 void quickstreams::Stream::abort() {
-	if(_state == State::Dead) return;
-	_state = State::Aborted;
-	if(_type == Type::Abortable) abortChildren();
+	// Dead streams and already aborted streams cannot be aborted
+	if(_state == State::Dead || _state == State::Aborted) return;
+
+	// If this stream is delayed currently awaiting its awakening
+	// then cancel it in case it's attached or free.
+	// Only bound streams should block until the delay is over
+	if(_state == State::AwaitingDelay) {
+		_state = State::Aborted;
+		if(_type == Type::Abortable) {
+			_awakeningTimer->stop();
+		}
+	} else {
+		_state = State::Aborted;
+		if(_type == Type::Abortable) {
+			abortChildren();
+		}
+	}
 }
 
 bool quickstreams::Stream::isAbortable() const {

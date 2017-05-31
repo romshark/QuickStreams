@@ -8,6 +8,7 @@
 #include <QString>
 #include <QMetaType>
 #include <QSet>
+#include <QTimer>
 
 namespace quickstreams {
 
@@ -18,10 +19,15 @@ class Stream : public QObject {
 	friend class StreamProvider;
 
 public:
-	enum class State : char {Dead, Active, Aborted};
+	enum class State : char {Dead, Active, Aborted, AwaitingDelay};
 	Q_ENUM(State)
 
-	enum class WakeCondition : char {Default, Abort};
+	enum class WakeCondition : char {
+		Default,
+		Abort,
+		DefaultNoDelay,
+		AbortNoDelay,
+	};
 	Q_ENUM(WakeCondition)
 
 	enum class Type : char {Atomic, Abortable};
@@ -42,6 +48,7 @@ protected:
 	Stream* _parent;
 	NextType _nextType;
 	QVariantList _retryErrSamples;
+	QTimer* _awakeningTimer;
 	qint32 _maxTrials;
 	qint32 _currentTrial;
 	QJSValue _repeatCondition;
@@ -89,8 +96,6 @@ protected slots:
 	// Awakes this stream when a superordinate stream is closed
 	void awakeFromEvent(QString name, QVariant data = QVariant());
 
-	void handleParentAbortion();
-
 signals:
 	void eventEmitted(QString name, QVariant data);
 	void closed(QVariant data, WakeCondition wakeCondition);
@@ -103,6 +108,13 @@ signals:
 	void propagateAbortionStream(Stream* abortionStream);
 
 public:
+	// delay is a stream operator, it delays the awakening of the stream
+	// for the given amount of milliseconds. If the stream is abortable
+	// and aborted during the delay - the delay timer is stopped,
+	// the stream is canceled and never awoken. But if it's an atomic stream
+	// the delay will block abortion until the stream is finally awoken.
+	Q_INVOKABLE Stream* delay(const QJSValue& duration);
+
 	// retry is a stream operator, it repeats resurrecting the current stream
 	// if either of the given error samples match the catched error.
 	Q_INVOKABLE Stream* retry(
