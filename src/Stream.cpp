@@ -1,31 +1,30 @@
 #include "Stream.hpp"
 #include "StreamHandle.hpp"
-#include <QQmlEngine>
+#include "Executable.hpp"
+#include "LambdaExecutable.hpp"
+#include "Repeater.hpp"
+#include "LambdaRepeater.hpp"
 #include <QJSValue>
+#include <QList>
 #include <QString>
 #include <QVariant>
-#include <QtQml>
 #include <QMetaObject>
 #include <QTimer>
+#include <QSharedPointer>
 
 quickstreams::Stream::Stream(
-	QQmlEngine* engine,
-	const QJSValue& function,
+	ProviderInterface* provider,
+	const Executable::Reference& executable,
 	Type type,
-	Belonging belonging,
-	QObject* parent
+	Capture capture
 ) :
-	QObject(parent),
-	_engine(engine),
+	QObject(nullptr),
+	_provider(provider),
 	_type(type),
-	_state(State::Dead),
-	_belonging(belonging),
-	_function(function),
+	_state(State::New),
+	_capture(capture),
 	_parent(nullptr),
-	_nextType(NextType::None),
-	_awakeningTimer(nullptr),
-	_maxTrials(-2),
-	_currentTrial(0),
+	_captured(Captured::None),
 	_handle(
 		// Called when stream is requested to emit an event
 		[this](const QString& name, const QVariant& data) {
@@ -40,37 +39,24 @@ quickstreams::Stream::Stream(
 			emitFailed(reason, WakeCondition::Default);
 		},
 		// Called when stream is requested to adopt another stream
-		[this](const QVariant& target) {
-			// If target is invalid then create a new stream
-			Stream* stream;
-			if(target.canConvert<Stream*>()) {
-				stream = target.value<Stream*>();
-			} else {
-				stream = new Stream(
-					_engine,
-					QJSValue(),
-					Type::Atomic,
-					Belonging::Bound
-				);
-			}
-			// Acquire full ownership
-			stream->setParentStream(this);
-			return stream;
-		},
-		// Called when stream reference is requested
-		[this]() {
-			return this;
+		[this](Reference& reference) {
+			return adopt(reference);
 		},
 		// Called when isAbortable is requested
 		[this]() {
-			return this->isAbortable();
+			return isAbortable();
 		},
 		// Called when isAborted is requested
 		[this]() {
-			return this->isAborted();
+			return isAborted();
 		}
-	)
+	),
+	_executable(executable),
+	_awakeningTimer(nullptr),
+	_retryer(nullptr),
+	_repeater(nullptr)
 {
+	if(!_executable.isNull()) _executable->setHandle(&_handle);
 	connect(
 		this, &Stream::retryIteration,
 		this, &Stream::awake,
@@ -83,113 +69,143 @@ quickstreams::Stream::Stream(
 	);
 }
 
+quickstreams::Stream::Reference quickstreams::Stream::create(
+	const Executable::Reference& executable,
+	Type type,
+	Capture capture
+) const {
+	Stream::Reference reference(new Stream(
+		_provider, executable, type, capture
+	), &Stream::deleteLater);
+	_provider->registerNew(reference);
+	return reference;
+}
+
+quickstreams::Stream::Reference quickstreams::Stream::adopt(
+	Reference another
+) {
+	if(another.isNull()) {
+		auto reference(create(nullptr, Type::Atomic, Capture::Bound));
+		another.swap(reference);
+	}
+	// Acquire ownership over the adopted stream
+	another->setSuperordinateStream(this);
+	return another;
+}
+
 void quickstreams::Stream::emitEvent(
 	const QString& name,
 	const QVariant& data
-) {
-	// Dead channels can't emit any events
-	if(_state == State::Dead) return;
-	eventEmitted(name, data);
+) const {
+	if(!_observedEvents.contains(name)) return;
+
+	// Execute all registered callbacks
+	QList<Callback::Reference> callbacks(_observedEvents.values(name));
+	for(
+		QList<Callback::Reference>::const_iterator itr(
+			callbacks.constBegin()
+		);
+		itr != callbacks.constEnd();
+		itr++
+	) {
+		if(itr->isNull()) continue;
+		(*itr)->execute(data);
+	}
 }
 
 void quickstreams::Stream::emitClosed(const QVariant& data) {
-	// Dead channels can't be closed
-	if(_state == State::Dead) return;
+	// Dead and canceled streams can't be closed
+	if(isInactive()) return;
 
 	// Reset trial counter on success
-	_currentTrial = 0;
+	if(!_retryer.isNull()) _retryer->reset();
 
 	// Check whether repeat is desired
-	QJSValue result(_repeatCondition.call({
-		QJSValue(isAborted())
-	}));
-
-	if(result.isBool() && result.toBool() == true) {
-		// Repeat asynchronously resurrecting this stream in another tick
-		repeatIteration(data, WakeCondition::Default);
-		return;
+	if(!_repeater.isNull()) {
+		if(_repeater->evaluate(isAborted())) {
+			// Repeat asynchronously resurrecting this stream in another tick
+			repeatIteration(data, WakeCondition::Default);
+			return;
+		}
 	}
 
 	// If there is no next stream but this stream was aborted
 	// the abortion recovery stream should be invoked next.
 	// Otherwise execute the subsequent bound stream
 	// with the condition that its state is initially 'Aborted'
-	if(_state == State::Aborted) {
-		switch(_nextType) {
-		case NextType::Bound:
+	if(isAborted()) {
+		switch(_captured) {
+		case Captured::Bound:
 			closed(data, WakeCondition::Abort);
+			// Die but don't touch any other sequence,
+			// forward cleanup responsibility to the bound stream.
+			die();
 			return;
 		default:
 			aborted(data, WakeCondition::Default);
+			// Die and cancel unreachable sequences
+			// (current sequence and the failure sequence)
+			die();
+			eliminateSequence();
+			eliminateFailureSequence();
 			return;
 		}
 	}
 
 	// Otherwise close this stream initializing the next stream
 	closed(data, WakeCondition::Default);
-	_state = State::Dead;
+	die();
+
+	// If this stream represents the end of a sequence
+	// then eliminate the unreachable failure and abortion sequences
+	if(_captured == Captured::None) {
+		eliminateFailureSequence();
+		eliminateAbortionSequence();
+	}
 }
 
 void quickstreams::Stream::emitFailed(
 	const QVariant& data,
 	WakeCondition wakeCondition
 ) {
-	// Dead channels can't fail
-	if(_state == State::Dead) return;
-	_currentTrial++;
+	// Dead and canceled stream can't fail
+	if(isInactive()) return;
+
 	// Check whether retrial is desired
-	if(
-		(_maxTrials < 0 || _currentTrial <= _maxTrials)
-		&& verifyErrorListed(data)
-	) {
-		// Retry asynchronously
-		retryIteration(data, wakeCondition);
-		return;
+	if(_retryer != nullptr) {
+		_retryer->incrementTrialCounter();
+		if(_retryer->verify(data)) {
+			// Retry asynchronously
+			retryIteration(data, wakeCondition);
+			return;
+		}
 	}
-	// Otherwise fail this stream and invoke failure recovery stream
+
+	// Otherwise fail this stream and redirect control flow
+	// to the failure recovery sequence
 	failed(data, WakeCondition::Default);
-	_state = State::Dead;
+	// Die and cancel unreachable sequences
+	// (current sequence and the abortion sequence)
+	die();
+	eliminateSequence();
+	eliminateAbortionSequence();
 }
 
-bool quickstreams::Stream::verifyErrorListed(const QVariant& err) const {
-	for(
-		QVariantList::const_iterator itr(_retryErrSamples.constBegin());
-		itr != _retryErrSamples.constEnd();
-		itr++
-	) if(err == *itr) return true;
-	return false;
-}
-
-quickstreams::Stream* quickstreams::Stream::subsequentStream(
-	const QJSValue& target,
-	Type streamType,
-	Belonging belonging
-) {
-	Stream* stream;
-	if(target.isCallable()) {
-		// Create new streams to wrap function objects
-		stream = new Stream(_engine, target, streamType, belonging);
-	} else if(target.toVariant().canConvert<Stream*>()) {
-		// Passed streams are connected
-		stream = qjsvalue_cast<Stream*>(target);
-
-		// Take ownership to prevent free execution
-		stream->_belonging = belonging;
-	} else {
-		// In all other cases create a new stream with a null function
-		stream = new Stream(_engine, QJSValue(), streamType, belonging);
-	}
-	return stream;
-}
-
-void quickstreams::Stream::setParentStream(Stream *parentStream) {
+void quickstreams::Stream::setSuperordinateStream(Stream *stream) {
 	// Remember parent stream for automatic inheritance
-	_parent = parentStream;
+	_parent = stream;
 
 	// Immediately react to parents abortion
 	connect(
-		_parent, &Stream::abortChildren,
+		_parent, &Stream::abortSubordinate,
 		this, &Stream::abort,
+		Qt::DirectConnection
+	);
+
+	// Immediately die on parents elimination command
+	connect(
+		_parent, &Stream::eliminateSubordinate,
+		this, &Stream::die,
 		Qt::DirectConnection
 	);
 }
@@ -199,16 +215,23 @@ void quickstreams::Stream::connectSubsequent(Stream* stream) {
 	// during the declaration
 	connect(
 		stream, &Stream::propagateFailureStream,
-		this, &Stream::registerFailureRecoveryStream,
+		this, &Stream::registerFailureSequence,
 		Qt::DirectConnection
 	);
 	connect(
 		stream, &Stream::propagateAbortionStream,
-		this, &Stream::registerAbortionRecoveryStream,
+		this, &Stream::registerAbortionSequence,
 		Qt::DirectConnection
 	);
 
-	// When this stream closes - awake the attached stream
+	// Immediately kill the subsequent stream including the entire sequence
+	connect(
+		this, &Stream::eliminateSequence,
+		stream, &Stream::onEliminateSequence,
+		Qt::DirectConnection
+	);
+
+	// When this stream closes - awake the next stream
 	connect(
 		this, &Stream::closed,
 		stream, &Stream::awake,
@@ -216,15 +239,30 @@ void quickstreams::Stream::connectSubsequent(Stream* stream) {
 	);
 
 	// Automatically inherit parent stream
-	if(_parent) stream->setParentStream(_parent);
+	if(_parent) stream->setSuperordinateStream(_parent);
+}
+
+void quickstreams::Stream::die() {
+	switch(_state) {
+	case State::New:
+		_state = State::Canceled;
+		break;
+	default:
+		_state = State::Dead;
+		break;
+	}
+	_provider->dispose(this);
+
+	// Eliminate all subordinate streams
+	eliminateSubordinate();
 }
 
 void quickstreams::Stream::initialize() {
-	if(_belonging != Belonging::Free) return;
+	if(_capture != Capture::Free) return;
 	awake(QVariant(), WakeCondition::Default);
 }
 
-void quickstreams::Stream::registerFailureRecoveryStream(
+void quickstreams::Stream::registerFailureSequence(
 	Stream* failureStream
 ) {
 	// Asynchronously awake failure recovery stream if this stream fails
@@ -234,11 +272,18 @@ void quickstreams::Stream::registerFailureRecoveryStream(
 		Qt::QueuedConnection
 	);
 
+	// Immediately kill the failure sequence on signal
+	connect(
+		this, &Stream::eliminateFailureSequence,
+		failureStream, &Stream::onEliminateSequence,
+		Qt::DirectConnection
+	);
+
 	// Propagate failure stream to superordinate streams
 	propagateFailureStream(failureStream);
 }
 
-void quickstreams::Stream::registerAbortionRecoveryStream(
+void quickstreams::Stream::registerAbortionSequence(
 	Stream* abortionStream
 ) {
 	// Asynchronously awake abortion recovery stream if this stream is aborted
@@ -246,6 +291,13 @@ void quickstreams::Stream::registerAbortionRecoveryStream(
 		this, &Stream::aborted,
 		abortionStream, &Stream::awake,
 		Qt::QueuedConnection
+	);
+
+	// Immediately kill the abortion sequence on signal
+	connect(
+		this, &Stream::eliminateAbortionSequence,
+		abortionStream, &Stream::onEliminateSequence,
+		Qt::DirectConnection
 	);
 
 	// Propagate abortion stream to superordinate streams
@@ -272,6 +324,8 @@ void quickstreams::Stream::awake(
 		case WakeCondition::Abort:
 			wakeCondition = WakeCondition::AbortNoDelay;
 			break;
+		default:
+			break;
 		}
 		QObject::disconnect(
 			_awakeningTimer, &QTimer::timeout,
@@ -287,39 +341,36 @@ void quickstreams::Stream::awake(
 		return;
 	}
 
-	// If this stream is not yet aborted or requested to abort
-	// then mark it as active. Otherwise mark as aborted
+	// If this stream is not yet aborted but requested to abort
+	// then transit to aborted state. Otherwise transite to active state
 	if(_state != State::Aborted && (
 		wakeCondition == WakeCondition::Abort
 		|| wakeCondition == WakeCondition::AbortNoDelay
 	)) {
 		_state = State::Aborted;
-	} else if(_state == State::Dead) {
+	} else if(_state == State::New) {
 		_state = State::Active;
 	}
 
 	// if function is not callable the stream is considered closed
-	if(!_function.isCallable()) {
+	if(_executable.isNull()) {
 		emitClosed(QVariant());
 		return;
 	};
-	QJSValue result(_function.call({
-		_engine->toScriptValue(_handle),
-		_engine->toScriptValue(data)
-	}));
+	_executable->execute(data);
 
 	// If function returned an error the stream is considered failed
-	if(result.isError()) {
+	if(_executable->hasFailed()) {
 		switch(_state) {
 		case State::Aborted:
 			emitFailed(
-				QVariant::fromValue<QJSValue>(result),
+				_executable->getError(),
 				WakeCondition::Abort
 			);
 			break;
 		default:
 			emitFailed(
-				QVariant::fromValue<QJSValue>(result),
+				_executable->getError(),
 				WakeCondition::Default
 			);
 			break;
@@ -329,17 +380,16 @@ void quickstreams::Stream::awake(
 	// But if a stream was returned then wrap this stream.
 	// There's no need for this stream to acquire ownership,
 	// it's okay for the wrapped stream to execute freely.
-	else if(result.toVariant().canConvert<Stream*>()) {
-		auto stream(qjsvalue_cast<Stream*>(result));
+	else if(_executable->hasReturnedStream()) {
 		connect(
-			stream, &Stream::failed,
+			_executable->stream(), &Stream::failed,
 			this, [this](QVariant reason) {
 				emitFailed(reason, WakeCondition::Default);
 			},
 			Qt::QueuedConnection
 		);
 		connect(
-			stream, &Stream::closed,
+			_executable->stream(), &Stream::closed,
 			this, [this](QVariant data, WakeCondition wakeCondition) {
 				Q_UNUSED(wakeCondition)
 				emitClosed(data);
@@ -349,134 +399,183 @@ void quickstreams::Stream::awake(
 	}
 }
 
-void quickstreams::Stream::awakeFromEvent(QString name, QVariant data) {
-	// Verify that this event is one of those
-	// which this stream is listening for
-	// in case there is at least one observed event
-	if(_observedEvents.size() > 0 && !_observedEvents.contains(name)) return;
-	awake(data, WakeCondition::Default);
+void quickstreams::Stream::onEliminateSequence() {
+	die();
+	eliminateSequence();
 }
 
-quickstreams::Stream* quickstreams::Stream::delay(const QJSValue& duration) {
-	if(!duration.isNumber()) return this;
-	if(_awakeningTimer == nullptr) {
-		_awakeningTimer = new QTimer(this);
-	}
-	_awakeningTimer->setInterval(duration.toInt());
+quickstreams::Stream::Reference quickstreams::Stream::delay(qint32 duration) {
+	if(_awakeningTimer == nullptr) _awakeningTimer = new QTimer(this);
+	_awakeningTimer->setInterval(duration);
 	_awakeningTimer->setSingleShot(true);
-	return this;
+	return _provider->reference(this);
 }
 
-quickstreams::Stream* quickstreams::Stream::retry(
-	const QVariant& samples,
-	const QJSValue& maxTrials
+quickstreams::Stream::Reference quickstreams::Stream::retry(
+	const QVariantList& samples,
+	qint32 maxTrials
 ) {
-	_retryErrSamples.clear();
-	if(samples.canConvert<QVariantList>()) {
-		_retryErrSamples = samples.value<QVariantList>();
-	} else {
-		_retryErrSamples.append(samples);
-	}
-	// If given amount of trials is negative, make it 0
-	// because -1 stands for infinite amount of trials
-	// which is only applied when no amount of trials was set.
-	if(maxTrials.isNumber()) {
-		qint32 trials = maxTrials.toInt();
-		if(trials < 0) trials = 0;
-		_maxTrials = trials;
-	}
-	return this;
+	_retryer.reset(new Retryer(samples, maxTrials));
+	return _provider->reference(this);
 }
 
-quickstreams::Stream* quickstreams::Stream::repeat(const QJSValue& condition) {
-	if(!condition.isCallable()) return this;
-	_repeatCondition = condition;
-	return this;
-}
-
-quickstreams::Stream* quickstreams::Stream::attach(const QJSValue& target) {
-	//TODO: forbid declaration of multiple subsequent streams
-	_nextType = NextType::Attached;
-	auto stream(subsequentStream(target, Type::Abortable, Belonging::Attached));
-	connectSubsequent(stream);
-	return stream;
-}
-
-quickstreams::Stream* quickstreams::Stream::bind(const QJSValue& target) {
-	//TODO: forbid declaration of multiple subsequent streams
-	_nextType = NextType::Bound;
-	auto stream(subsequentStream(target, Type::Abortable, Belonging::Bound));
-	connectSubsequent(stream);
-	return stream;
-}
-
-quickstreams::Stream* quickstreams::Stream::event(
-	const QVariant& name,
-	QJSValue target
+quickstreams::Stream::Reference quickstreams::Stream::repeat(
+	Repeater::Reference newRepeater
 ) {
-	auto stream(subsequentStream(target, Type::Atomic, Belonging::Attached));
+	_repeater.swap(newRepeater);
+	return _provider->reference(this);
+}
 
-	// If event name is recognizable
-	if(name.canConvert<QString>()) {
-		stream->_observedEvents.insert(name.value<QString>());
-	}
+quickstreams::Stream::Reference quickstreams::Stream::repeat(
+	LambdaRepeater::Function function
+) {
+	_repeater.reset(new LambdaRepeater(function));
+	return _provider->reference(this);
+}
 
-	// When this stream emits an event - awake the subsequent stream
-	connect(
-		this, &Stream::eventEmitted,
-		stream, &Stream::awakeFromEvent,
-		Qt::QueuedConnection
-	);
+quickstreams::Stream::Reference quickstreams::Stream::attach(
+	const Executable::Reference& executable
+) {
+	//TODO: forbid declaration of multiple subsequent streams
+	auto reference(create(executable, Type::Abortable, Capture::Attached));
+	_captured = Captured::Attached;
+	connectSubsequent(reference.data());
+	return reference;
+}
+
+quickstreams::Stream::Reference quickstreams::Stream::attach(
+	LambdaExecutable::Function prototype
+) {
+	return attach(Executable::Reference(new LambdaExecutable(prototype)));
+}
+
+quickstreams::Stream::Reference quickstreams::Stream::attach(
+	const Reference& stream
+) {
+	//TODO: forbid declaration of multiple subsequent streams
+	_captured = Captured::Attached;
+	connectSubsequent(stream.data());
+	stream->_capture = Capture::Attached;
 	return stream;
 }
 
-quickstreams::Stream* quickstreams::Stream::failure(const QJSValue& target) {
-	auto stream(subsequentStream(target, Type::Atomic, Belonging::Bound));
+quickstreams::Stream::Reference quickstreams::Stream::bind(
+	const Executable::Reference& executable
+) {
+	//TODO: forbid declaration of multiple subsequent streams
+	auto reference(create(executable, Type::Abortable, Capture::Bound));
+	_captured = Captured::Bound;
+	connectSubsequent(reference.data());
+	return reference;
+}
 
+quickstreams::Stream::Reference quickstreams::Stream::bind(
+	LambdaExecutable::Function prototype
+) {
+	return bind(Executable::Reference(new LambdaExecutable(prototype)));
+}
+
+quickstreams::Stream::Reference quickstreams::Stream::bind(
+	const Reference& stream
+) {
+	//TODO: forbid declaration of multiple subsequent streams
+	_captured = Captured::Bound;
+	connectSubsequent(stream.data());
+	stream->_capture = Capture::Bound;
+	return stream;
+}
+
+quickstreams::Stream::Reference quickstreams::Stream::event(
+	const QString& name,
+	const Callback::Reference& callback
+) {
+	if(name.length() < 1) return _provider->reference(this);
+	if(callback.isNull()) return _provider->reference(this);
+	_observedEvents.insert(name, callback);
+	return _provider->reference(this);
+}
+
+quickstreams::Stream::Reference quickstreams::Stream::failure(
+	const Executable::Reference& executable
+) {
+	auto reference(create(executable, Type::Atomic, Capture::Bound));
 	// When this stream failed - awake the failure stream
-	registerFailureRecoveryStream(stream);
+	registerFailureSequence(reference.data());
+	return reference;
+}
+
+quickstreams::Stream::Reference quickstreams::Stream::failure(
+	LambdaExecutable::Function prototype
+) {
+	return failure(Executable::Reference(new LambdaExecutable(prototype)));
+}
+
+quickstreams::Stream::Reference quickstreams::Stream::failure(
+	const Reference& stream
+) {
+	// When this stream failed - awake the failure stream
+	registerFailureSequence(stream.data());
+	stream->_capture = Capture::Bound;
 	return stream;
 }
 
-quickstreams::Stream* quickstreams::Stream::abortion(const QJSValue& target) {
-	auto stream(subsequentStream(target, Type::Atomic, Belonging::Bound));
-
+quickstreams::Stream::Reference quickstreams::Stream::abortion(
+	const Executable::Reference& executable
+) {
+	auto reference(create(executable, Type::Atomic, Capture::Bound));
 	// When this stream was aborted - awake the abortion stream
-	registerAbortionRecoveryStream(stream);
+	registerAbortionSequence(reference.data());
+	return reference;
+}
+
+quickstreams::Stream::Reference quickstreams::Stream::abortion(
+	LambdaExecutable::Function prototype
+) {
+	return abortion(Executable::Reference(new LambdaExecutable(prototype)));
+}
+
+quickstreams::Stream::Reference quickstreams::Stream::abortion(
+	const Reference& stream
+) {
+	// When this stream was aborted - awake the abortion stream
+	registerAbortionSequence(stream.data());
+	stream->_capture = Capture::Bound;
 	return stream;
 }
 
 void quickstreams::Stream::abort() {
-	// Dead streams and already aborted streams cannot be aborted
-	if(_state == State::Dead || _state == State::Aborted) return;
+	// Dead, canceled and already aborted streams cannot be aborted
+	if(isInactive() || isAborted()) return;
 
 	// If this stream is delayed currently awaiting its awakening
 	// then cancel it in case it's attached or free.
 	// Only bound streams should block until the delay is over
 	if(_state == State::AwaitingDelay) {
 		_state = State::Aborted;
-		if(_type == Type::Abortable) {
+		if(isAbortable() && _awakeningTimer != nullptr) {
 			_awakeningTimer->stop();
 		}
 	} else {
 		_state = State::Aborted;
-		if(_type == Type::Abortable) {
-			abortChildren();
-		}
+		if(isAbortable()) abortSubordinate();
 	}
 }
 
 bool quickstreams::Stream::isAbortable() const {
-	if(_type == Type::Abortable) return true;
-	return false;
+	return _type == Type::Abortable;
 }
 
 bool quickstreams::Stream::isAborted() const {
 	return _state == State::Aborted;
 }
 
-static void registerQmlTypes() {
-    qmlRegisterInterface<quickstreams::Stream>("Stream");
+bool quickstreams::Stream::isInactive() const {
+	switch(_state) {
+	case State::Dead:
+	case State::Canceled:
+	case State::New:
+		return true;
+	default:
+		return false;
+	}
 }
-
-Q_COREAPP_STARTUP_FUNCTION(registerQmlTypes)

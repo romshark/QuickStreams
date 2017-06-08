@@ -2,4 +2,9 @@
 
 #include "Stream.hpp"
 #include "StreamHandle.hpp"
-#include "StreamProvider.hpp"
+#include "Provider.hpp"
+#include "QmlProvider.hpp"
+#include "JsExecutable.hpp"
+#include "LambdaExecutable.hpp"
+#include "JsCallback.hpp"
+#include "LambdaCallback.hpp"

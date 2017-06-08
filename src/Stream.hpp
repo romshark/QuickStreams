@@ -1,25 +1,48 @@
 #pragma once
 
+#include "ProviderInterface.hpp"
 #include "StreamHandle.hpp"
+#include "Executable.hpp"
+#include "LambdaExecutable.hpp"
+#include "Repeater.hpp"
+#include "LambdaRepeater.hpp"
+#include "Retryer.hpp"
+#include "Callback.hpp"
 #include <QObject>
 #include <QJSValue>
-#include <QQmlEngine>
 #include <QVariant>
+#include <QVariantList>
 #include <QString>
 #include <QMetaType>
-#include <QSet>
+#include <QMultiHash>
 #include <QTimer>
+#include <QSharedPointer>
 
 namespace quickstreams {
 
-class Streams;
+class Provider;
+
+namespace qml {
+
+class QmlStream;
+class QmlProvider;
+
+}
 
 class Stream : public QObject {
 	Q_OBJECT
-	friend class StreamProvider;
+	friend class quickstreams::Provider;
+	friend class quickstreams::qml::QmlStream;
+	friend class quickstreams::qml::QmlProvider;
 
 public:
-	enum class State : char {Dead, Active, Aborted, AwaitingDelay};
+	typedef QSharedPointer<quickstreams::Stream> Reference;
+
+	enum class State : char {
+		New, Canceled,
+		Active, AwaitingDelay, Aborted,
+		Dead
+	};
 	Q_ENUM(State)
 
 	enum class WakeCondition : char {
@@ -33,68 +56,76 @@ public:
 	enum class Type : char {Atomic, Abortable};
 	Q_ENUM(Type)
 
-	enum class Belonging : char {Free, Attached, Bound, Wrapped};
-	Q_ENUM(Belonging)
+	enum class Capture : char {Free, Attached, Bound, Wrapped};
+	Q_ENUM(Capture)
 
-	enum class NextType : char {Attached, Bound, None};
-	Q_ENUM(NextType)
+	enum class Captured : char {Attached, Bound, None};
+	Q_ENUM(Captured)
 
 protected:
-	QQmlEngine* _engine;
+	ProviderInterface* _provider;
 	Type _type;
 	State _state;
-	Belonging _belonging;
-	QJSValue _function;
+	Capture _capture;
 	Stream* _parent;
-	NextType _nextType;
-	QVariantList _retryErrSamples;
-	QTimer* _awakeningTimer;
-	qint32 _maxTrials;
-	qint32 _currentTrial;
-	QJSValue _repeatCondition;
-	QSet<QString> _observedEvents;
+	Captured _captured;
+	QMultiHash<QString, Callback::Reference> _observedEvents;
 	StreamHandle _handle;
 
+	// Optional members and operators
+	Executable::Reference _executable;
+	QTimer* _awakeningTimer;
+	Retryer::Reference _retryer;
+	Repeater::Reference _repeater;
+
 	explicit Stream(
-		QQmlEngine* engine,
-		const QJSValue& function,
+		ProviderInterface* provider,
+		const Executable::Reference& executable,
 		Type type = Type::Atomic,
-		Belonging belonging = Belonging::Free,
-		QObject* parent = nullptr
+		Capture capture = Capture::Free
 	);
-	void emitEvent(const QString& name, const QVariant& data);
+	Reference create(
+		const Executable::Reference& executable,
+		Type type,
+		Capture capture
+	) const;
+
+	Reference adopt(Reference another);
+	void emitEvent(const QString& name, const QVariant& data) const;
 	void emitClosed(const QVariant& data);
 	void emitFailed(const QVariant& reason, WakeCondition wakeCondition);
-	bool verifyErrorListed(const QVariant& err) const;
-	Stream* subsequentStream(
-		const QJSValue& target,
-		Type streamType,
-		Belonging belonging
-	);
-	void setParentStream(Stream* parentStream);
+	void setSuperordinateStream(Stream* stream);
 	void connectSubsequent(Stream* stream);
+	void die();
 
 protected slots:
-	// Initialize is called on stream creation to delay execution.
+	// The stream is asynchronously initialized
+	// after it's creation by the provider.
+	// If it remained uncaptured - thus free,
+	// it will be awoken right away
 	void initialize();
 
-	// Registers a stream to awake if this stream fails.
-	// Propagate to superordinate streams
-	void registerFailureRecoveryStream(Stream* failureStream);
+	// Registers the first stream of the sequence to awake
+	// when this stream fails.
+	// Recursively propagate it to the entire sequence
+	void registerFailureSequence(Stream* failureStream);
 
-	// Registers a stream to awake if this stream is aborted.
-	// Propagate to superordinate streams
-	void registerAbortionRecoveryStream(Stream* abortionStream);
+	// Registers the first stream of the sequence to awake
+	// when this stream is closed after it's aborted.
+	// Recursively propagate it to the entire sequence
+	void registerAbortionSequence(Stream* abortionStream);
 
-	// Awakes this stream when a superordinate stream is closed
+	// Awakes this stream, when the preceding stream either closes
+	// or redirects control flow to this stream after a failure or an abortion
 	void awake(
 		QVariant data = QVariant(),
 		quickstreams::Stream::WakeCondition wakeCondition =
 			quickstreams::Stream::WakeCondition::Default
 	);
 
-	// Awakes this stream when a superordinate stream is closed
-	void awakeFromEvent(QString name, QVariant data = QVariant());
+	// Handles sequence eliminatation signal, must cancel this stream
+	// and recursively eliminate all subsequent streams
+	void onEliminateSequence();
 
 signals:
 	void eventEmitted(QString name, QVariant data);
@@ -103,9 +134,21 @@ signals:
 	void aborted(QVariant reason, WakeCondition wakeCondition);
 	void retryIteration(QVariant data, WakeCondition wakeCondition);
 	void repeatIteration(QVariant data, WakeCondition wakeCondition);
-	void abortChildren();
+	void abortSubordinate();
 	void propagateFailureStream(Stream* failureStream);
 	void propagateAbortionStream(Stream* abortionStream);
+
+	// Eliminates all subordinate streams
+	void eliminateSubordinate();
+
+	// Eliminates the current sequence recursively
+	void eliminateSequence();
+
+	// Eliminates the declared failure sequence recursively
+	void eliminateFailureSequence();
+
+	// Eliminates the declared abortion sequence recursively
+	void eliminateAbortionSequence();
 
 public:
 	// delay is a stream operator, it delays the awakening of the stream
@@ -113,24 +156,25 @@ public:
 	// and aborted during the delay - the delay timer is stopped,
 	// the stream is canceled and never awoken. But if it's an atomic stream
 	// the delay will block abortion until the stream is finally awoken.
-	Q_INVOKABLE Stream* delay(const QJSValue& duration);
+	Reference delay(int duration);
 
 	// retry is a stream operator, it repeats resurrecting the current stream
 	// if either of the given error samples match the catched error.
-	Q_INVOKABLE Stream* retry(
-		const QVariant& samples,
-		const QJSValue& maxTrials = QJSValue()
-	);
+	Reference retry(const QVariantList& samples, qint32 maxTrials = -1);
 
 	// repeat is a stream operator, it repeats resurrecting the current stream
 	// if the given condition returns true.
-	Q_INVOKABLE Stream* repeat(const QJSValue& condition);
+	Reference repeat(Repeater::Reference newRepeater);
+	Reference repeat(LambdaRepeater::Function function);
+
 
 	// attach is a stream operator, it creates a new stream that is awoken
 	// when the current stream is successfuly closed.
 	//
 	// NOTICE: the next stream will inherit the superordinate streams parent.
-	Q_INVOKABLE Stream* attach(const QJSValue& target);
+	Reference attach(const Executable::Reference& executable);
+	Reference attach(LambdaExecutable::Function prototype);
+	Reference attach(const Reference& stream);
 
 	// bind is a stream operator, it creates a new appended stream
 	// that is guaranteed to be awoken when the current stream
@@ -142,35 +186,44 @@ public:
 	//
 	// NOTICE: Streams appended to abortable streams won't be awoken
 	// if the abortable stream was aborted.
-	Q_INVOKABLE Stream* bind(const QJSValue& target);
+	Reference bind(const Executable::Reference& executable);
+	Reference bind(LambdaExecutable::Function prototype);
+	Reference bind(const Reference& stream);
 
 	//TODO: implement
 	// event is a stream operator, it creates and returns a new stream
 	// that is awoken when a certain set of events occures.
-	Q_INVOKABLE Stream* event(const QVariant& name, QJSValue callback);
+	Reference event(const QString& name, const Callback::Reference& callback);
 
 	// failure is a chain operator that acts upon the superordinate
 	// stream chain. It returns a new stream that is awoken
 	// when the superordinate stream chain fails.
-	Q_INVOKABLE Stream* failure(const QJSValue& target);
+	Reference failure(const Executable::Reference& executable);
+	Reference failure(LambdaExecutable::Function prototype);
+	Reference failure(const Reference& stream);
 
 	// abortion is a chain operator that acts upon the superordinate
 	// stream chain. It returns a new stream that is awoken
 	// when the superordinate stream chain is aborted.
-	Q_INVOKABLE Stream* abortion(const QJSValue& target);
+	Reference abortion(const Executable::Reference& executable);
+	Reference abortion(LambdaExecutable::Function prototype);
+	Reference abortion(const Reference& stream);
 
 	// abort is a stream method that allows to abort this stream.
 	// This method does nothing if this stream is atomic.
-	Q_INVOKABLE void abort();
+	void abort();
 
-	// isAbortable returns false if this stream is atomic, otherwise true.
-	Q_INVOKABLE bool isAbortable() const;
+	// Returns false if this stream is atomic, otherwise returns true.
+	bool isAbortable() const;
 
-	// isAborted returns true if this stream was aborted, otherwise false.
-	Q_INVOKABLE bool isAborted() const;
+	// Returns true if this stream was aborted, otherwise returns false.
+	bool isAborted() const;
+
+	// Returns true if this stream is either new, canceled or dead,
+	// otherwise returns false
+	bool isInactive() const;
 };
 
 } // quickstreams
 
-Q_DECLARE_METATYPE(quickstreams::Stream*)
 Q_DECLARE_METATYPE(quickstreams::Stream::Type)
