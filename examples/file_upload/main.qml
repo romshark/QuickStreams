@@ -55,21 +55,21 @@ ApplicationWindow {
 		})
 
 		// Handle file allocation success event
-		uploadStream.event('allocated', function(stream, data) {
+		uploadStream.event('allocated', function(data) {
 			console.log('file successfuly allocated (', data.id, ')')
 			uploadList.setProperty(listIndex, 'step', 'uploading')
 			uploadList.setProperty(listIndex, 'identifier', data.id)
 		})
 
 		// Update progress on "chunk_uploaded"
-		uploadStream.event('chunk_uploaded', function(stream, data) {
+		uploadStream.event('chunk_uploaded', function(data) {
 			console.log('chunk uploaded (', data.progress, '/', fileSize, ')')
 			uploadList.setProperty(listIndex, 'progress', data.progress)
 		})
 
 		uploadStream.event(
 			'cleanup_after_failure',
-			function(stream) {
+			function() {
 				console.log('failed, cleaning up...')
 				uploadList.setProperty(listIndex, 'step', 'failed')
 			}
@@ -77,7 +77,7 @@ ApplicationWindow {
 
 		uploadStream.event(
 			'cleanup_after_abortion',
-			function(stream) {
+			function() {
 				console.log('aborted, cleaning up...')
 				uploadList.setProperty(listIndex, 'step', 'aborting')
 			}

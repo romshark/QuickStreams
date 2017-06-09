@@ -9,12 +9,16 @@ int main(int argc, char *argv[]) {
 
 	auto engine(new QQmlApplicationEngine);
 
-	// Create a new streams provider and expose it to qml
-	// in the form of a global context property.
-	// Pass the applications QML engine to it, it'll need it
-	// to allow smooth interaction between C++ and QML.
-	auto streamsProvider(new quickstreams::StreamProvider(engine, engine));
-	engine->rootContext()->setContextProperty("QuickStreams", streamsProvider);
+	// Create a streams provider
+	auto provider(new quickstreams::Provider);
+
+	// Create a new QML streams provider based on the regular stream provider
+	// and expose it to QML in the form of a global context property.
+	// This will allow to create streams in QML
+	auto qmlProvider(new quickstreams::qml::QmlProvider(engine, provider));
+
+	auto context(engine->rootContext());
+	context->setContextProperty("QuickStreams", qmlProvider);
 
 	engine->load(QUrl(QLatin1String("qrc:/main.qml")));
 

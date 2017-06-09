@@ -54,10 +54,10 @@ Item {
 			// Don't worry about this stream not being closed,
 			// It won't become a zombie, because the mainStream
 			// is properly closed and will erase the adopted stream on closure
-			mainStream.adopt(QuickStreams.create(function() {
+			return QuickStreams.create(function() {
 				console.log('FS::write > write completed')
 				mainStream.close()
-			}))
+			})
 			.delay(helper.randomNetLatency())
 		})
 	}
