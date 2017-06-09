@@ -3,7 +3,7 @@
 #include "Stream.hpp"
 #include "QmlStreamHandle.hpp"
 #include "Executable.hpp"
-#include "Provider.hpp"
+#include "ProviderInterface.hpp"
 #include <QObject>
 #include <QMetaType>
 #include <QSharedPointer>
@@ -18,10 +18,31 @@ namespace quickstreams {
 namespace qml {
 
 class QmlProvider;
+class JsExecutable;
+
+// The stream conversion struct helps converting JavaScript prototypes into
+// QmlStream instances by either creating one from an existing stream wrapped
+// by another QmlStream instance or create an entirely new stream in a wrapper
+class StreamConversion {
+	friend class QmlStream;
+
+protected:
+	QmlStream* stream;
+	bool fromExisting;
+
+	StreamConversion(QmlStream* stream, bool fromExisting = false);
+
+	// The cleanup function deletes the stream created during the conversion
+	// process since it's no longer reachable removing its provider reference
+	// as well as the QmlStream wrapper instance
+	void cleanUp(ProviderInterface* provider);
+};
 
 class QmlStream : public QObject {
 	Q_OBJECT
-	friend class quickstreams::qml::QmlProvider;
+	friend class QmlProvider;
+	friend class StreamConversion;
+	friend class JsExecutable;
 
 protected:
 	QQmlEngine* _engine;
@@ -32,11 +53,11 @@ protected:
 		QQmlEngine* engine,
 		quickstreams::Stream::Reference reference
 	);
-	QmlStream* fromJsValue(
+	StreamConversion fromJsValue(
 		const QJSValue& value,
-		quickstreams::Stream::Type type,
-		quickstreams::Stream::Capture capture
+		quickstreams::Stream::Type type
 	);
+
 
 public:
 	// delay is a stream operator, it delays the awakening of the stream
@@ -75,7 +96,6 @@ public:
 	// if the abortable stream was aborted.
 	Q_INVOKABLE QmlStream* bind(const QJSValue& target);
 
-	//TODO: implement
 	// event is a stream operator, it creates and returns a new stream
 	// that is awoken when a certain set of events occures.
 	Q_INVOKABLE QmlStream* event(

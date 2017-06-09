@@ -5,7 +5,7 @@
 #include "JsExecutable.hpp"
 #include "JsCallback.hpp"
 #include "JsRepeater.hpp"
-#include "Provider.hpp"
+#include "ProviderInterface.hpp"
 #include <QJSValue>
 #include <QString>
 #include <QVariant>
@@ -13,6 +13,24 @@
 #include <QMetaObject>
 #include <QTimer>
 #include <QSharedPointer>
+
+quickstreams::qml::StreamConversion::StreamConversion(
+	QmlStream* stream,
+	bool fromExisting
+) :
+	stream(stream),
+	fromExisting(fromExisting)
+{}
+
+void quickstreams::qml::StreamConversion::cleanUp(
+	ProviderInterface* provider
+) {
+	if(fromExisting) return;
+
+	// Delete the created but unreachable stream including its wrapper
+	provider->dispose(stream->_reference.data());
+	stream->deleteLater();
+}
 
 quickstreams::qml::QmlStream::QmlStream(
 	QQmlEngine* engine,
@@ -31,7 +49,7 @@ quickstreams::qml::QmlStream::QmlStream(
 					_reference->create(
 						nullptr,
 						quickstreams::Stream::Type::Atomic,
-						quickstreams::Stream::Capture::Bound
+						quickstreams::Stream::CaptionStatus::Bound
 					)
 				);
 			}
@@ -45,24 +63,28 @@ quickstreams::qml::QmlStream::QmlStream(
 	)
 {}
 
-quickstreams::qml::QmlStream* quickstreams::qml::QmlStream::fromJsValue(
+quickstreams::qml::StreamConversion quickstreams::qml::QmlStream::fromJsValue(
 	const QJSValue& value,
-	quickstreams::Stream::Type type,
-	quickstreams::Stream::Capture capture
+	quickstreams::Stream::Type type
 ) {
 	if(value.isCallable()) {
-		// Return a newly created stream wrapper based on a new stream
+		// Return a newly created wrapper wrapping a new stream
 		auto jsExec(new JsExecutable(_engine, value));
 		auto stream(new QmlStream(_engine, _reference->create(
-			Executable::Reference(jsExec), type, capture
+			Executable::Reference(jsExec), type,
+			quickstreams::Stream::CaptionStatus::Free
 		)));
 		jsExec->setQmlHandle(&stream->_handle);
-		return stream;
+		return StreamConversion(stream);
 	} else if(value.toVariant().canConvert<QmlStream*>()) {
-		// Return a newly created stream wrapper based on another wrapper
-		return qjsvalue_cast<QmlStream*>(value);
+		// Return a wrapper to an existing stream
+		return StreamConversion(qjsvalue_cast<QmlStream*>(value), true);
 	}
-	return new QmlStream(_engine, _reference->create(nullptr, type, capture));
+
+	//Otherwise return a newly created wrapper wrapping a new (dry) stream
+	return StreamConversion(new QmlStream(_engine, _reference->create(
+		nullptr, type, quickstreams::Stream::CaptionStatus::Free
+	)));
 }
 
 quickstreams::qml::QmlStream* quickstreams::qml::QmlStream::delay(
@@ -102,27 +124,35 @@ quickstreams::qml::QmlStream* quickstreams::qml::QmlStream::repeat(
 quickstreams::qml::QmlStream* quickstreams::qml::QmlStream::attach(
 	const QJSValue& target
 ) {
-	//TODO: forbid declaration of multiple subsequent streams
-	auto stream(fromJsValue(
+	auto conversion(fromJsValue(
 		target,
-		quickstreams::Stream::Type::Abortable,
-		quickstreams::Stream::Capture::Attached
+		quickstreams::Stream::Type::Abortable
 	));
-	_reference->attach(stream->_reference);
-	return stream;
+
+	// If the referenced stream returns itself from the attach operator then
+	// there was an error, thus return this wrapper instead of the other one
+	if(_reference == _reference->attach(conversion.stream->_reference)) {
+		conversion.cleanUp(_reference->_provider);
+		return this;
+	}
+	return conversion.stream;
 }
 
 quickstreams::qml::QmlStream* quickstreams::qml::QmlStream::bind(
 	const QJSValue& target
 ) {
-	//TODO: forbid declaration of multiple subsequent streams
-	auto stream(fromJsValue(
+	auto conversion(fromJsValue(
 		target,
-		quickstreams::Stream::Type::Abortable,
-		quickstreams::Stream::Capture::Bound
+		quickstreams::Stream::Type::Abortable
 	));
-	_reference->bind(stream->_reference);
-	return stream;
+
+	// If the referenced stream returns itself from the bind operator then
+	// there was an error, thus return this wrapper instead of the other one
+	if(_reference == _reference->bind(conversion.stream->_reference)) {
+		conversion.cleanUp(_reference->_provider);
+		return this;
+	}
+	return conversion.stream;
 }
 
 quickstreams::qml::QmlStream* quickstreams::qml::QmlStream::event(
@@ -140,25 +170,35 @@ quickstreams::qml::QmlStream* quickstreams::qml::QmlStream::event(
 quickstreams::qml::QmlStream* quickstreams::qml::QmlStream::failure(
 	const QJSValue& target
 ) {
-	auto stream(fromJsValue(
+	auto conversion(fromJsValue(
 		target,
-		quickstreams::Stream::Type::Atomic,
-		quickstreams::Stream::Capture::Bound
+		quickstreams::Stream::Type::Atomic
 	));
-	_reference->failure(stream->_reference);
-	return stream;
+
+	// If the referenced stream returns itself from the failure operator then
+	// there was an error, thus return this wrapper instead of the other one
+	if(_reference == _reference->failure(conversion.stream->_reference)) {
+		conversion.cleanUp(_reference->_provider);
+		return this;
+	}
+	return conversion.stream;
 }
 
 quickstreams::qml::QmlStream* quickstreams::qml::QmlStream::abortion(
 	const QJSValue& target
 ) {
-	auto stream(fromJsValue(
+	auto conversion(fromJsValue(
 		target,
-		quickstreams::Stream::Type::Atomic,
-		quickstreams::Stream::Capture::Bound
+		quickstreams::Stream::Type::Atomic
 	));
-	_reference->abortion(stream->_reference);
-	return stream;
+
+	// If the referenced stream returns itself from the abortion operator then
+	// there was an error, thus return this wrapper instead of the other one
+	if(_reference == _reference->abortion(conversion.stream->_reference)) {
+		conversion.cleanUp(_reference->_provider);
+		return this;
+	}
+	return conversion.stream;
 }
 
 void quickstreams::qml::QmlStream::abort() {

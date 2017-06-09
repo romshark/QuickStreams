@@ -13,11 +13,13 @@ namespace quickstreams {
 
 namespace qml {
 	class QmlProvider;
+	class StreamConversion;
 }
 
 class Provider : public QObject, public ProviderInterface {
 	Q_OBJECT
 	friend class qml::QmlProvider;
+	friend class qml::StreamConversion;
 
 protected:
 	typedef QHash<Stream*, Stream::Reference> ReferenceMap;

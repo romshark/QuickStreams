@@ -56,19 +56,28 @@ public:
 	enum class Type : char {Atomic, Abortable};
 	Q_ENUM(Type)
 
-	enum class Capture : char {Free, Attached, Bound, Wrapped};
-	Q_ENUM(Capture)
-
-	enum class Captured : char {Attached, Bound, None};
+	enum class Captured : char {None, Attached, Bound};
 	Q_ENUM(Captured)
+
+	enum class CaptionStatus : char {Free, Attached, Bound};
+	Q_ENUM(CaptionStatus)
+
+	enum class ControlFlowBranching : char {
+		None,
+		Failure,
+		Abortion,
+		Both
+	};
+	Q_ENUM(ControlFlowBranching)
 
 protected:
 	ProviderInterface* _provider;
 	Type _type;
 	State _state;
-	Capture _capture;
-	Stream* _parent;
+	ControlFlowBranching _conFlowBranching;
 	Captured _captured;
+	CaptionStatus _captionStatus;
+	Stream* _parent;
 	QMultiHash<QString, Callback::Reference> _observedEvents;
 	StreamHandle _handle;
 
@@ -82,13 +91,51 @@ protected:
 		ProviderInterface* provider,
 		const Executable::Reference& executable,
 		Type type = Type::Atomic,
-		Capture capture = Capture::Free
+		CaptionStatus captionStatus = CaptionStatus::Free
 	);
 	Reference create(
 		const Executable::Reference& executable,
 		Type type,
-		Capture capture
+		CaptionStatus captionStatus
 	) const;
+
+	// Return true if the attach attempt was faulty
+	// for any of the following reasons:
+	// 1. this stream already captured another stream (no sequence splitting)
+	// 2. attempted to attach a non-free stream
+	// 3. attempted to attach a stream to itself
+	bool cannotAttach() const;
+	bool cannotAttachStream(const Reference& stream) const;
+	bool cannotBind() const;
+	bool cannotBindStream(const Reference& stream) const;
+
+	// Return true if this stream already registered a failure branch
+	// to prevent multiple failure branches and invokations
+	// of a stream from multiple different sequences
+
+	// Return true if the attempt to register a failure sequence was faulty
+	// for any of the following reasons:
+	// 1. this stream already registered another failure sequence
+	// 2. attempted to register a non-free stream
+	// 3. attempted to register a stream to itself
+	bool cannotBranchFailure() const;
+	bool cannotBranchFailureStream(const Reference& stream) const;
+
+	// Return true if the attempt to register an abortion sequence was faulty
+	// for any of the following reasons:
+	// 1. this stream already registered another abortion sequence
+	// 2. attempted to register a non-free stream
+	// 3. attempted to register a stream to itself
+	bool cannotBranchAbortion() const;
+	bool cannotBranchAbortionStream(const Reference& stream) const;
+
+	// Throws a warning if the initial stream of a failure sequence
+	// is a member of the sequence to branch off in case of failure
+	void verifyFailureSequenceStream(Stream* stream) const;
+
+	// Throws a warning if the initial stream of an abortion sequence
+	// is a member of the sequence to branch off in case of abortion
+	void verifyAbortionSequenceStream(Stream* stream) const;
 
 	Reference adopt(Reference another);
 	void emitEvent(const QString& name, const QVariant& data) const;
@@ -190,7 +237,6 @@ public:
 	Reference bind(LambdaExecutable::Function prototype);
 	Reference bind(const Reference& stream);
 
-	//TODO: implement
 	// event is a stream operator, it creates and returns a new stream
 	// that is awoken when a certain set of events occures.
 	Reference event(const QString& name, const Callback::Reference& callback);

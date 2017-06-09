@@ -17,7 +17,7 @@ quickstreams::Stream::Reference quickstreams::Provider::internalCreate(
 		this,
 		executable,
 		type,
-		Stream::Capture::Free
+		Stream::CaptionStatus::Free
 	));
 	Stream::Reference reference(stream, &Stream::deleteLater);
 	registerNew(reference);
