@@ -82,7 +82,7 @@
 		<a href="https://goo.gl/VC9yAT">sequences</a> in a more intuitive way.
 		</p>
 
-		<h1>Streams</h1>
+		<h2>Streams</h2>
 
 		<p class="subtitle desktop">A stream is a stateful entity wrapping a
 		code fragment.<br>It's a black box, that once awoken
@@ -142,7 +142,7 @@
 			can be assigned to be awoken on the events of other streams.</li>
 		</ul>
 
-		<h1>Operators</h1>
+		<h2>Operators</h2>
 		
 		<p class="subtitle desktop">Operators define control flow patterns<br>
 		connecting streams and sequences</p>
@@ -201,7 +201,13 @@
 
 
 	<div>
-		<h1>Sequences</h1>
+		<h2>Sequences</h2>
+
+		<p class="subtitle desktop">Streams can form sequences<br>
+		executing asynchronous operations in serial</p>
+		<p class="subtitle mobile">Streams can form sequences
+		executing asynchronous operations in serial</p>
+
 		<p>One of the fundamentals of asynchronous programming is the
 		declarative creation of asynchronous operation sequences.
 		Streams can form sequences using the <b>attach</b> operator.
@@ -272,7 +278,13 @@
 		the execution of another stream and returned to it
 		as in the example above.</p>
 
-		<h1>Failure Recovery</h1>
+		<h2>Failure Recovery</h2>
+
+		<p class="subtitle desktop">Unpredictable stream failures can be
+		recovered<br> redirecting control flow to other sequences</p>
+		<p class="subtitle mobile">Unpredictable stream failures can be
+		recovered redirecting control flow to other sequences</p>
+
 		<p>A failure recovery mechanism is an important part of the
 		asynchronous control flow. To prevent undefined behavior and
 		malfunctions caused by unexpectedly failed streams
@@ -324,7 +336,15 @@
 		<p>The <b>failure</b> operator starts a new sequence which could also
 		fail and recover as in the example above.</p>
 
-		<h1>Retrial</h1>
+		<h2>Retrial</h2>
+
+		<p class="subtitle desktop">Individual stream failure can sometimes be
+		expected.<br> Streams can therefore be ressurrected and retried<br>
+		before finally breaking the sequence</p>
+		<p class="subtitle mobile">Individual stream failure can sometimes be
+		expected. Streams can therefore be ressurrected and retried
+		before finally breaking the sequence</p>
+
 		<p>There are situations when certain failures are expected
 		but shouldn't necessarily break the sequence. QuickStreams offers
 		the <b>retry</b> stream operator for such cases.</p>
@@ -365,7 +385,13 @@
 		to another error (like a 500 - Internal Server Error) the sequence will
 		break.</p>
 
-		<h1>Repetition</h1>
+		<h2>Repetition</h2>
+
+		<p class="subtitle desktop">Streams can be instructed to re-execute<br>
+		until a certain condition is met</p>
+		<p class="subtitle mobile">Streams can be instructed to re-execute
+		until a certain condition is met</p>
+
 		<p>Asynchronous loops are harder to describe than regular
 		synchronous ones. To avoid unreadable, pseudo-recursive, asynchronous
 		constructs QuickStreams offers the <b>repeat</b> stream operator.</p>
@@ -399,7 +425,13 @@ http.get('http://server.org/assets')
 		the stream again or not.</p>
 
 
-		<h1>Events</h1>
+		<h2>Events</h2>
+
+		<p class="subtitle desktop">Streams can emit events<br>
+		and subscribe observers to them</p>
+		<p class="subtitle mobile">Streams can emit events
+		and subscribe observers to them</p>
+
 		<p>Besides special events such as a <b>closure</b>,
 		a <b>failure</b> or an <b>abortion</b> a stream can emit custom
 		events identified names optionally carrying arbitrary data sets.</p>
@@ -448,7 +480,13 @@ counterStream.event('update', http.get('http://server.org/assets'))
 		<b>spawnCounter</b> will always awake 2 new streams on every iteration.
 		</p>
 
-		<h1>Abortion</h1>
+		<h2>Abortion</h2>
+
+		<p class="subtitle desktop">Streams and sequences can be recursively
+		aborted<br>properly shutting down subordinate sequences</p>
+		<p class="subtitle mobile">Streams and sequences can be recursively
+		aborted properly shutting down subordinate sequences</p>
+
 		<p>One of the hardest asynchronous problems to deal with is abortion.
 		It's relatively hard to describe a sequence of transactions that might
 		be asked to abort at any time. Additionally there could be an
@@ -595,7 +633,13 @@ QuickStreams.timeout(50, function(stream) {
 		consistent stream interface. All interaction with this stream will
 		reflect onto the underlying, subordinate sequence.</p>
 
-		<h1>Binding</h1>
+		<h2>Binding</h2>
+
+		<p class="subtitle desktop">Streams can form atomic sequences<br>
+		to insure serial execution despite abortion</p>
+		<p class="subtitle mobile">Streams can form atomic sequences
+		to insure serial execution despite abortion</p>
+
 		<p>When a sequence is aborted during the execution of an atomic
 		stream - an attached stream won't be awoken when the stream's closed,
 		the control flow will be redirected to the stream defined by the
