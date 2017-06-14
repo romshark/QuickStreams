@@ -13,9 +13,11 @@ void quickstreams::LambdaExecutable::execute(const QVariant& data) {
 		// Execute
 		QSharedPointer<Stream> stream(_function(*_handle, data));
 		if(!stream.isNull()) _returnedStream = stream.data();
-	} catch(std::exception error) {
+	} catch(const std::exception& error) {
 		// Execution failed
 		//TODO: turn error into variant
-		_error = QSharedPointer<QVariant>(new QVariant());
+		_error.reset(new QVariant(error.what()));
+	} catch(...) {
+		_error.reset(new QVariant());
 	}
 }

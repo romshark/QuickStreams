@@ -26,7 +26,7 @@ bool quickstreams::Executable::hasReturnedStream() const {
 }
 
 QVariant quickstreams::Executable::getError() const {
-	if(_error == nullptr) return QVariant();
+	if(_error.isNull()) return QVariant();
 	return *_error;
 }
 
