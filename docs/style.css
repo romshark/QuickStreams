@@ -14,7 +14,7 @@
 
 body {
 	margin: auto;
-	width: 700px;
+	width: calc(700px - 2rem);
 	box-sizing: border-box;
 	padding: 1rem;
 	font-family: segoe;
@@ -104,6 +104,10 @@ img {
 
 .desktop {
 	display: block;
+}
+
+.non-desktop {
+	display: none;
 }
 
 .mobile {
@@ -293,7 +297,7 @@ img {
 .operator {
 	font-size: 1rem;
 	display: inline-block;
-	width: 220px;
+	width: 210px;
 	padding: .5rem;
 	box-sizing: border-box;
 	-webkit-transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
@@ -345,29 +349,22 @@ img {
 
 /* MOBILE */
 
-@media (max-width: 700px) {
+@media (max-width: 440px) {
 
 	/* MOBILE ESSENTIALS */
 
 	body {
-		margin: auto;
+		margin: 0px;
 		width: 100%;
 		padding-left: 1rem;
 		padding-right: 1rem;
-		box-sizing: border-box;
-		font-family: segoe;
-		font-size: 1rem;
-		line-height: 1.6rem;
-		padding-top: 3rem;
-		padding-bottom: 3rem;
+		padding-top: 2rem;
+		padding-bottom: 2rem;
 	}
 
 	h1, h2, h3, h4, h5, h6 {
-		font-weight: normal;
 		margin-top: 4rem;
 		margin-bottom: 2rem;
-		font-family: segoe_light;
-		text-align: center;
 		font-size: 2rem;
 	}
 
@@ -380,13 +377,17 @@ img {
 	img {
 		padding: 0rem;
 		padding-top: 1rem;
-		padding-bottom: 1rem;	
+		padding-bottom: 1rem;
 	}
 
 	/* MOBILE UTILS */
 
 	.desktop {
 		display: none;
+	}
+
+	.non-desktop {
+		display: block;
 	}
 
 	.mobile {
@@ -396,11 +397,82 @@ img {
 	/* MOBILE TYPES */
 
 	.subtitle {
-		margin-top: 2rem;
 		font-size: 1.4rem;
-		text-align: center;
-		line-height: 2.5rem;
-		font-family: segoe_light;
+	}
+
+	.subtitle.mobile {
+		margin-bottom: 1rem;
+	}
+
+	.source-link {
+		width: 100%;
+		display: block;
+		margin: 0rem;
+		margin-top: .5rem;
+		padding-top: .5rem;
+		padding-bottom: .5rem;
+	}
+
+	.source-link p {
+		display: inline-block;
+	}
+
+	/* MOBILE ENTITIES */
+
+	#footer {
+		margin-top: 6rem;
+	}
+}
+
+@media (min-width: 440px) and (max-width: 700px) {
+
+	/* MOBILE ESSENTIALS */
+
+	body {
+		margin: 0px;
+		width: 100%;
+		padding-left: 3rem;
+		padding-right: 3rem;
+		padding-top: 3rem;
+		padding-bottom: 3rem;
+	}
+
+	h1, h2, h3, h4, h5, h6 {
+		margin-top: 4rem;
+		margin-bottom: 2rem;
+		font-size: 2rem;
+	}
+
+	li {
+		padding: 0rem;
+		padding-top: 1rem;
+		padding-bottom: 1rem;
+	}
+
+	img {
+		padding: 0rem;
+		padding-top: 1rem;
+		padding-bottom: 1rem;
+	}
+
+	/* MOBILE UTILS */
+
+	.desktop {
+		display: none;
+	}
+
+	.non-desktop {
+		display: block;
+	}
+
+	.mobile {
+		display: none;
+	}
+
+	/* MOBILE TYPES */
+
+	.subtitle {
+		font-size: 1.4rem;
 	}
 
 	.subtitle.mobile {

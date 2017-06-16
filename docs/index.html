@@ -60,7 +60,7 @@
 
 	<p class="subtitle desktop">An Asynchronous Programming Library<br>for the
 	<a href="https://goo.gl/8kRfmT">QML</a> Programming Language</p>
-	<p class="subtitle mobile">An Asynchronous Programming Library for the
+	<p class="subtitle non-desktop">An Asynchronous Programming Library for the
 	<a href="https://goo.gl/8kRfmT">QML</a> Programming Language</p>
 
 	<ul id="links-list">
@@ -165,7 +165,7 @@
 	<i class="accent">dies</i> <sup class="upper">(closure)</sup> or is
 	<i class="accent">killed</i> <sup class="upper">(abortion)</sup></p>
 
-	<p class="subtitle mobile">A stream is a stateful entity wrapping a
+	<p class="subtitle non-desktop">A stream is a stateful entity wrapping a
 	code fragment. It's a black box, that once awoken
 	starts emitting events until it either <i class="accent">perishes</i>
 	(failure), <i class="accent">dies</i> (closure) or is
@@ -177,7 +177,7 @@
 	Almost everything can be represented by a stream.
 	<br><b>Sockets</b>, <b>Requests</b>, <b>Computations</b>,
 	<b>UI Elements</b> and more</p>
-	<p class="subtitle mobile">
+	<p class="subtitle non-desktop">
 	Almost everything can be represented by a stream.
 	<b>Sockets</b>, <b>Requests</b>, <b>Computations</b>,
 	<b>UI Elements</b> and more</p>
@@ -223,7 +223,7 @@
 	
 	<p class="subtitle desktop">Operators define control flow patterns<br>
 	connecting streams and sequences</p>
-	<p class="subtitle mobile">Operators define control flow patterns
+	<p class="subtitle non-desktop">Operators define control flow patterns
 	connecting streams and sequences</p>
 
 	<ul class="stream-operator-list">
@@ -279,7 +279,7 @@
 
 	<p class="subtitle desktop">Streams can form sequences<br>
 	executing asynchronous operations in serial</p>
-	<p class="subtitle mobile">Streams can form sequences
+	<p class="subtitle non-desktop">Streams can form sequences
 	executing asynchronous operations in serial</p>
 
 	<img src="img/sequence.svg">
@@ -359,7 +359,7 @@
 
 	<p class="subtitle desktop">Unpredictable stream failures can be
 	recovered<br> redirecting control flow to other sequences</p>
-	<p class="subtitle mobile">Unpredictable stream failures can be
+	<p class="subtitle non-desktop">Unpredictable stream failures can be
 	recovered redirecting control flow to other sequences</p>
 
 	<minimizable><div slot="content">
@@ -421,7 +421,7 @@
 	<p class="subtitle desktop">Individual stream failure can sometimes be
 	expected.<br> Streams can therefore be resurrected and retried<br>
 	before finally breaking the sequence</p>
-	<p class="subtitle mobile">Individual stream failure can sometimes be
+	<p class="subtitle non-desktop">Individual stream failure can sometimes be
 	expected. Streams can therefore be resurrected and retried
 	before finally breaking the sequence</p>
 
@@ -470,7 +470,7 @@
 
 	<p class="subtitle desktop">Streams can be instructed to re-execute<br>
 	until a certain condition is met</p>
-	<p class="subtitle mobile">Streams can be instructed to re-execute
+	<p class="subtitle non-desktop">Streams can be instructed to re-execute
 	until a certain condition is met</p>
 
 	<minimizable><div slot="content">
@@ -512,7 +512,7 @@ http.get('http://server.org/assets')
 
 	<p class="subtitle desktop">Streams can emit events and subscribe observers
 	to them.<br>Observers handle and process those events</p>
-	<p class="subtitle mobile">Streams can emit events and subscribe observers
+	<p class="subtitle non-desktop">Streams can emit events and subscribe observers
 	to them. Observers handle and process those events</p>
 
 	<minimizable><div slot="content">
@@ -570,7 +570,7 @@ counterStream.event('update', http.get('http://server.org/assets'))
 
 	<p class="subtitle desktop">Streams and sequences can be recursively
 	aborted<br>properly shutting down subordinate sequences</p>
-	<p class="subtitle mobile">Streams and sequences can be recursively
+	<p class="subtitle non-desktop">Streams and sequences can be recursively
 	aborted properly shutting down subordinate sequences</p>
 
 	<minimizable><div slot="content">
@@ -726,7 +726,7 @@ movDocStream.abort()
 
 	<p class="subtitle desktop">Streams can form atomic sequences<br>
 	to insure serial execution despite abortion</p>
-	<p class="subtitle mobile">Streams can form atomic sequences
+	<p class="subtitle non-desktop">Streams can form atomic sequences
 	to insure serial execution despite abortion</p>
 
 	<minimizable><div slot="content">
@@ -791,7 +791,7 @@ logger.entry('assets were received:', assets)
 	<a href="https://opensource.org/licenses/MIT">MIT License</a>.</p>
 </div>
 
-<div id="footer" class="mobile">
+<div id="footer" class="non-desktop">
 	<p>Copyright © 2017 Roman Sharkov.<br>All rights reserved.</p>
 	<p><b>QuickStreams</b> is a product<br>of the <a href="https://qbeon.com">
 	QBEON Company</a><br>licensed under the
