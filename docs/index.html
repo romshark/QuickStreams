@@ -2,24 +2,60 @@
 <html>
 <head>
 	<title>QuickStreams</title>
+	<meta charset="utf-8">
 	<meta
 		name="viewport"
 		content="width=device-width, initial-scale=1">
 
+	<meta name="author" content="Roman Sharkov">
+	<meta
+		name="keywords"
+		content="asynchronous,async,Qt,QML,QtQuick,C++,Library,JavaScript">
+	<meta
+		name="description"
+		content="An asynchronous programming library for the QML programming language">
+
 	<!-- highlight.js -->
-	<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/
-	libs/highlight.js/9.11.0/styles/vs.min.css">
-	<script src="//cdnjs.cloudflare.com/ajax/libs/
-	highlight.js/9.11.0/highlight.min.js"></script>
+	<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.11.0/styles/vs.min.css">
+	<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.11.0/highlight.min.js"></script>
 	<script>hljs.initHighlightingOnLoad();</script>
+	
+	<!-- vue.js -->
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/vue/2.3.4/vue.min.js"></script>
 
 	<!-- fontawesome -->
-	<link href="http://maxcdn.bootstrapcdn.com/font-awesome/4.2.0/
-	css/font-awesome.min.css"rel="stylesheet">
+	<link href="http://maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css"rel="stylesheet">
+
+	<!-- animate.css -->
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.5.2/animate.min.css">
 
 	<link rel="stylesheet" type="text/css" href="style.css">
 </head>
 <body>
+
+<script type="text/x-template" id="minimizable-template">
+	<div>
+		<div class="readmore noselect" v-on:click="minimized = !minimized">
+			<transition name="fade-switch">
+			<div key="1" v-if="minimized">
+				<i class="fa fa-angle-down"></i>
+				<span>Read More</span>
+			</div>
+			<div key="2" v-if="!minimized">
+				<i class="fa fa-angle-up"></i>
+				<span>Hide Details</span>
+			</div>
+			</transition>
+		</div>
+		<transition name="fade">
+			<div v-show="!minimized">
+				<slot name="content"></slot>
+			</div>
+		</transition>
+	</div>
+</script>
+
+<div id="introduction-page">
 	<p id="main-title">QuickStreams <sup style="font-size: 1rem;">Beta</sup></p>
 
 	<p class="subtitle desktop">An Asynchronous Programming Library<br>for the
@@ -32,27 +68,45 @@
 			<a
 			href="https://github.com/qbeon/QuickStreams/archive/v0.1.0.tar.gz">
 				<p>download</p>
-				<p class="accent">0.1.0 (.tar)</p>
+				<p class="accent">
+					0.1.0
+					(.tar)
+				</p>
 			</a>
 		</li>
 		<li class="source-link">
 			<a href="https://github.com/qbeon/QuickStreams/archive/v0.1.0.zip">
 				<p>download</p>
-				<p class="accent">0.1.0 (.zip)</p>
+				<p class="accent">
+					0.1.0
+					(.zip)
+				</p>
 			</a>
 		</li>
-		<li class="source-link">
+		<li class="source-link github">
 			<a href="https://github.com/qbeon/QuickStreams">
 				<p>view on</p>
-				<p class="accent">GitHub</p>
+				<p class="accent">
+					<i class="fa fa-github"></i>
+					GitHub
+				</p>
 			</a>
 		</li>
 	</ul>
 
 	<h1>Preface</h1>
-	<div>
-		<p>
-		<a href="https://goo.gl/L65lLK">Signals & Slots</a> are an integral
+	<div class="section preface" style="text-align:center;">
+		<p><b>QuickStreams</b> is an asynchronous programming library,
+		inspired by <a href="http://reactivex.io/">Reactive Extensions</a>,
+		implementing the <a href="https://goo.gl/adn5qW">
+		Reactive Programming Paradigm</a>. It provides a
+		consistent communication protocol for various application components and
+		allows describing complex asynchronous behavior in a more efficient way
+		reducing code complexity and enhancing stability.</p>
+	</div>
+
+	<minimizable><div slot="content">
+		<p><a href="https://goo.gl/L65lLK">Signals & Slots</a> are an integral
 		part of the <a href="https://goo.gl/53uH3A">Qt Quick</a> architecture
 		providing a powerful low level mechanism for responsive
 		<a href="https://goo.gl/fLnigX">asynchronous programming</a>.
@@ -61,53 +115,74 @@
 		complex asynchronous operations and
 		<a href="https://goo.gl/DVKEWR">transactions</a>.</p>
 
-		<p>To increase code readability and maintainability higher level
-		abstraction concepts like
+		<p>To increase readability and maintainability of asynchronous code
+		higher level abstraction concepts like
 		<a href="https://goo.gl/KC5odw">Callbacks</a> and more sophisticated
 		concepts like <a href="https://goo.gl/gxb84g">Promises and Futures</a>
 		are used, however, those are simple, primitive concepts,
 		providing only a very limited set of features to solve only the basic
-		problems of declarative, asynchronous control flow.</p>
-
-		<p><b>QuickStreams</b> is a Qt Quick asynchronous programming library,
-		inspired by <a href="http://reactivex.io/">Reactive Extensions</a>,
-		implementing the <a href="https://goo.gl/adn5qW">
-		Reactive Programming Paradigm</a> in a slightly redesigned manner.</p>
-
-		<p>It's built on top of Qt Quick's Signals & Slots mechanism based on
-		the concepts of stream based, <a href="https://goo.gl/XV2uU7">
-		event driven programming</a>, where everything can be
-		- and eventually is - a stream. Stream based programming allows to
-		describe complex asynchronous operations and
-		<a href="https://goo.gl/VC9yAT">sequences</a> in a more intuitive way.
+		problems of declarative, asynchronous control flow and event handling.
 		</p>
 
-		<h2>Streams</h2>
+		<p>The <a href="http://reactivex.io/">Reactive Extensions</a> approach
+		provides a great concept for asynchronous
+		<a href="https://goo.gl/XV2uU7">event handling and processing</a>
+		introducing the
+		<a href="http://reactivex.io/documentation/observable.html">
+		Obervable</a> primitive but lacks features for the declaration of
+		custom data stream representing rather complex (nested, abortable,
+		pausable, resumable) <a href="https://goo.gl/DVKEWR">transactions</a>.
+		</p>
 
-		<p class="subtitle desktop">A stream is a stateful entity wrapping a
-		code fragment.<br>It's a black box, that once awoken
-		starts emitting events<br>until it either
-		<i class="accent">perishes</i> <sup class="upper">(failure)</sup>,
-		<i class="accent">dies</i> <sup class="upper">(closure)</sup> or is
-		<i class="accent">killed</i> <sup class="upper">(abortion)</sup></p>
+		<p><b>QuickStreams</b> is built on top of Qt Quick's Signals & Slots
+		mechanism and provides two programming primitives covering both,
+		asynchronous <a href="https://en.wikipedia.org/wiki/Control_flow">
+		control flow</a> and <a href="https://goo.gl/XV2uU7">event handling</a>:
+		</p>
 
-		<p class="subtitle mobile">A stream is a stateful entity wrapping a
-		code fragment. It's a black box, that once awoken
-		starts emitting events until it either <i class="accent">perishes</i>
-		(failure), <i class="accent">dies</i> (closure) or is
-		<i class="accent">killed</i> (abortion)</p>
+		<ul>
+		<li>
+			<b>Streams</b> - Streams declaratively describe asynchronous
+			control flow. They can be chained into
+			<a href="https://en.wikipedia.org/wiki/Control_flow#Sequence">
+			sequences</a> and also abstract sequences representing them
+			as one higher stream.
+		</li>
+		<li><b>Observers</b> - Observers process events emitted by streams.
+		Multiple observers can be chained into
+		<a href="https://en.wikipedia.org/wiki/Pipeline_(computing)">
+		event processing pipelines</a> and initiate new stream sequences.</li>
+		</ul>
+	</div></minimizable>
 
-		<img src="img/stream-definition.svg">
 
-		<p class="subtitle desktop" style="margin-bottom:3rem;">
-		Almost everything can be represented by a stream.
-		<br><b>Sockets</b>, <b>Requests</b>, <b>Computations</b>,
-		<b>UI Elements</b> and more</p>
-		<p class="subtitle mobile" style="margin-bottom:3rem;">
-		Almost everything can be represented by a stream.
-		<b>Sockets</b>, <b>Requests</b>, <b>Computations</b>,
-		<b>UI Elements</b> and more</p>
+	<h2>Streams</h2>
 
+	<p class="subtitle desktop">A stream is a stateful entity wrapping a
+	code fragment.<br>It's a black box, that once awoken
+	starts emitting events<br>until it either
+	<i class="accent">perishes</i> <sup class="upper">(failure)</sup>,
+	<i class="accent">dies</i> <sup class="upper">(closure)</sup> or is
+	<i class="accent">killed</i> <sup class="upper">(abortion)</sup></p>
+
+	<p class="subtitle mobile">A stream is a stateful entity wrapping a
+	code fragment. It's a black box, that once awoken
+	starts emitting events until it either <i class="accent">perishes</i>
+	(failure), <i class="accent">dies</i> (closure) or is
+	<i class="accent">killed</i> (abortion)</p>
+
+	<img src="img/stream-definition.svg">
+
+	<p class="subtitle desktop">
+	Almost everything can be represented by a stream.
+	<br><b>Sockets</b>, <b>Requests</b>, <b>Computations</b>,
+	<b>UI Elements</b> and more</p>
+	<p class="subtitle mobile">
+	Almost everything can be represented by a stream.
+	<b>Sockets</b>, <b>Requests</b>, <b>Computations</b>,
+	<b>UI Elements</b> and more</p>
+
+	<minimizable><div slot="content">
 		<p>A stream can be in either of the following states: <b>Dead</b>,
 		<b>Active</b> or <b>Aborted</b>.
 		Once created, it's initially dead (yet not born)
@@ -141,83 +216,81 @@
 			optionally carrying an arbitrary set of data. Streams
 			can be assigned to be awoken on the events of other streams.</li>
 		</ul>
-
-		<h2>Operators</h2>
-		
-		<p class="subtitle desktop">Operators define control flow patterns<br>
-		connecting streams and sequences</p>
-		<p class="subtitle mobile">Operators define control flow patterns
-		connecting streams and sequences</p>
-
-		<ul class="stream-operator-list">
-			<li class="operator">
-				<p class="name">attach</p>
-				<p class="desc">Attaches a stream<br>onto another one</p>
-			</li>
-			<li class="operator">
-				<p class="name">bind</p>
-				<p class="desc">Binds an obligatory<br>stream to another one</p>
-			</li>
-			<li class="operator">
-				<p class="name">event</p>
-				<p class="desc">Subscribes an observer<br>to a certain event</p>
-			</li>
-			<li class="operator">
-				<p class="name">retry</p>
-				<p class="desc">
-					Resurrects and re-executes<br>a stream on certain failures
-				</p>
-			</li>
-			<li class="operator">
-				<p class="name">repeat</p>
-				<p class="desc">Conditionally resurrects<br>and re-executes
-				a stream</p>
-			</li>
-			<li class="operator">
-				<p class="name">failure</p>
-				<p class="desc">
-					Recovers a sequence<br>from an unexpected failure
-				</p>
-			</li>
-			<li class="operator">
-				<p class="name">abortion</p>
-				<p class="desc">
-					Recovers a sequence<br>from an eventual abortion
-				</p>
-			</li>
-			<li class="operator">
-				<p class="name">delay</p>
-				<p class="desc">
-					Delays the awakening<br>of an individual stream
-				</p>
-			</li>
-			<li class="operator unimplemented">
-				<p class="name">join</p>
-				<p class="desc">Planned for<br>upcoming releases</p>
-			</li>
-		</ul>
-	</div>
+	</div></minimizable>
 
 
+	<h2>Operators</h2>
+	
+	<p class="subtitle desktop">Operators define control flow patterns<br>
+	connecting streams and sequences</p>
+	<p class="subtitle mobile">Operators define control flow patterns
+	connecting streams and sequences</p>
 
-	<div>
-		<h2>Sequences</h2>
+	<ul class="stream-operator-list">
+		<li class="operator">
+			<p class="name">attach</p>
+			<p class="desc">Attaches a stream<br>onto another one</p>
+		</li>
+		<li class="operator">
+			<p class="name">bind</p>
+			<p class="desc">Binds an obligatory<br>stream to another one</p>
+		</li>
+		<li class="operator">
+			<p class="name">event</p>
+			<p class="desc">Subscribes an observer<br>to a certain event</p>
+		</li>
+		<li class="operator">
+			<p class="name">retry</p>
+			<p class="desc">
+				Resurrects and re-executes<br>a stream on certain failures
+			</p>
+		</li>
+		<li class="operator">
+			<p class="name">repeat</p>
+			<p class="desc">Conditionally resurrects<br>and re-executes
+			a stream</p>
+		</li>
+		<li class="operator">
+			<p class="name">failure</p>
+			<p class="desc">
+				Recovers a sequence<br>from an unexpected failure
+			</p>
+		</li>
+		<li class="operator">
+			<p class="name">abortion</p>
+			<p class="desc">
+				Recovers a sequence<br>from an eventual abortion
+			</p>
+		</li>
+		<li class="operator">
+			<p class="name">delay</p>
+			<p class="desc">
+				Delays the awakening<br>of an individual stream
+			</p>
+		</li>
+		<li class="operator unimplemented">
+			<p class="name">join</p>
+			<p class="desc">Planned for<br>upcoming releases</p>
+		</li>
+	</ul>
 
-		<p class="subtitle desktop">Streams can form sequences<br>
-		executing asynchronous operations in serial</p>
-		<p class="subtitle mobile">Streams can form sequences
-		executing asynchronous operations in serial</p>
 
-		<img src="img/sequence.svg">
+	<h2>Sequences</h2>
 
+	<p class="subtitle desktop">Streams can form sequences<br>
+	executing asynchronous operations in serial</p>
+	<p class="subtitle mobile">Streams can form sequences
+	executing asynchronous operations in serial</p>
+
+	<img src="img/sequence.svg">
+
+	<minimizable><div slot="content">
 		<p>One of the fundamentals of asynchronous programming is the
 		declarative creation of asynchronous operation sequences.
 		Streams can form sequences using the <b>attach</b> operator.
 		When a stream is being closed it awakes the next attached stream
 		if there is one, passing the asynchronous result to it,
 		before finally dying.</p>
-
-		<!--<img src="stream-definition.svg">-->
 
 		<div class="code">
 		<div class="code-header">
@@ -279,14 +352,17 @@
 		results are yet unknown. For this case a stream can be created during
 		the execution of another stream and returned to it
 		as in the example above.</p>
+	</div></minimizable>
 
-		<h2>Failure Recovery</h2>
 
-		<p class="subtitle desktop">Unpredictable stream failures can be
-		recovered<br> redirecting control flow to other sequences</p>
-		<p class="subtitle mobile">Unpredictable stream failures can be
-		recovered redirecting control flow to other sequences</p>
+	<h2>Failure Recovery</h2>
 
+	<p class="subtitle desktop">Unpredictable stream failures can be
+	recovered<br> redirecting control flow to other sequences</p>
+	<p class="subtitle mobile">Unpredictable stream failures can be
+	recovered redirecting control flow to other sequences</p>
+
+	<minimizable><div slot="content">
 		<p>A failure recovery mechanism is an important part of the
 		asynchronous control flow. To prevent undefined behavior and
 		malfunctions caused by unexpectedly failed streams
@@ -337,16 +413,19 @@
 
 		<p>The <b>failure</b> operator starts a new sequence which could also
 		fail and recover as in the example above.</p>
+	</div></minimizable>
 
-		<h2>Retrial</h2>
 
-		<p class="subtitle desktop">Individual stream failure can sometimes be
-		expected.<br> Streams can therefore be ressurrected and retried<br>
-		before finally breaking the sequence</p>
-		<p class="subtitle mobile">Individual stream failure can sometimes be
-		expected. Streams can therefore be ressurrected and retried
-		before finally breaking the sequence</p>
+	<h2>Retrial</h2>
 
+	<p class="subtitle desktop">Individual stream failure can sometimes be
+	expected.<br> Streams can therefore be resurrected and retried<br>
+	before finally breaking the sequence</p>
+	<p class="subtitle mobile">Individual stream failure can sometimes be
+	expected. Streams can therefore be resurrected and retried
+	before finally breaking the sequence</p>
+
+	<minimizable><div slot="content">
 		<p>There are situations when certain failures are expected
 		but shouldn't necessarily break the sequence. QuickStreams offers
 		the <b>retry</b> stream operator for such cases.</p>
@@ -355,9 +434,7 @@
 		optional number of times to retry. If a stream with the <b>retry</b>
 		operator applied - fails and the thrown error matches one of the given
 		samples, then the sequence doesn't break, instead the stream is
-		resurrected and executed again.
-
-		</p>
+		resurrected and executed again.</p>
 
 		<div class="code">
 		<div class="code-header">
@@ -386,14 +463,17 @@
 		<b>failure</b> operator. But if the request failed nevertheless but due
 		to another error (like a 500 - Internal Server Error) the sequence will
 		break.</p>
+	</div></minimizable>
 
-		<h2>Repetition</h2>
 
-		<p class="subtitle desktop">Streams can be instructed to re-execute<br>
-		until a certain condition is met</p>
-		<p class="subtitle mobile">Streams can be instructed to re-execute
-		until a certain condition is met</p>
+	<h2>Repetition</h2>
 
+	<p class="subtitle desktop">Streams can be instructed to re-execute<br>
+	until a certain condition is met</p>
+	<p class="subtitle mobile">Streams can be instructed to re-execute
+	until a certain condition is met</p>
+
+	<minimizable><div slot="content">
 		<p>Asynchronous loops are harder to describe than regular
 		synchronous ones. To avoid unreadable, pseudo-recursive, asynchronous
 		constructs QuickStreams offers the <b>repeat</b> stream operator.</p>
@@ -425,15 +505,17 @@ http.get('http://server.org/assets')
 		context variable <i>counter</i> to keep track of the passed steps and
 		decides on each iteration whether to repeat (resurrect and execute)
 		the stream again or not.</p>
+	</div></minimizable>
 
 
-		<h2>Events</h2>
+	<h2>Event Processing</h2>
 
-		<p class="subtitle desktop">Streams can emit events<br>
-		and subscribe observers to them</p>
-		<p class="subtitle mobile">Streams can emit events
-		and subscribe observers to them</p>
+	<p class="subtitle desktop">Streams can emit events and subscribe observers
+	to them.<br>Observers handle and process those events</p>
+	<p class="subtitle mobile">Streams can emit events and subscribe observers
+	to them. Observers handle and process those events</p>
 
+	<minimizable><div slot="content">
 		<p>Besides special events such as a <b>closure</b>,
 		a <b>failure</b> or an <b>abortion</b> a stream can emit custom
 		events identified names optionally carrying arbitrary data sets.</p>
@@ -444,15 +526,15 @@ http.get('http://server.org/assets')
 			<p>Defining a counter factory</p>
 		</div>
 		<pre><code class="javascript">function spawnCounter() {
-	QuickStreams.create(function(mainStream) {
-		var iteration = 0
-		QuickStreams.timeout(1000, function(stream) {
-			iteration++
-			mainStream.event('update', iteration)
-			stream.close()
-		})
-		.repeat()
+QuickStreams.create(function(mainStream) {
+	var iteration = 0
+	QuickStreams.timeout(1000, function(stream) {
+		iteration++
+		mainStream.event('update', iteration)
+		stream.close()
 	})
+	.repeat()
+})
 }</code></pre>
 		</div>
 
@@ -481,14 +563,17 @@ counterStream.event('update', http.get('http://server.org/assets'))
 		<p>The events fired by the <i>counterStream</i> created by
 		<b>spawnCounter</b> will always awake 2 new streams on every iteration.
 		</p>
+	</div></minimizable>
 
-		<h2>Abortion</h2>
 
-		<p class="subtitle desktop">Streams and sequences can be recursively
-		aborted<br>properly shutting down subordinate sequences</p>
-		<p class="subtitle mobile">Streams and sequences can be recursively
-		aborted properly shutting down subordinate sequences</p>
+	<h2>Abortion</h2>
 
+	<p class="subtitle desktop">Streams and sequences can be recursively
+	aborted<br>properly shutting down subordinate sequences</p>
+	<p class="subtitle mobile">Streams and sequences can be recursively
+	aborted properly shutting down subordinate sequences</p>
+
+	<minimizable><div slot="content">
 		<p>One of the hardest asynchronous problems to deal with is abortion.
 		It's relatively hard to describe a sequence of transactions that might
 		be asked to abort at any time. Additionally there could be an
@@ -601,26 +686,26 @@ counterStream.event('update', http.get('http://server.org/assets'))
 			<p>Using the asynchronous <b>moveDocuments</b> function</p>
 		</div>
 		<pre><code class="javascript">var movDocStream = moveDocuments(
-	'http://one.org/documents',
-	'http://another.org/documents'
+'http://one.org/documents',
+'http://another.org/documents'
 )
 
 var sequence = movDocStream.attach(function(stream) {
-	console.log('moveDocuments successfully completed')
+console.log('moveDocuments successfully completed')
 })
 
 sequence.failure(function(stream, error) {
-	console.log('moveDocuments failed:', error)	
+console.log('moveDocuments failed:', error)	
 })
 
 sequence.abortion(function(stream) {
-	console.log('moveDocuments successfully aborted')	
+console.log('moveDocuments successfully aborted')	
 })
 
 // If moveDocuments didn't complete after 50 milliseconds - abort it!
 // The abort won't do anything if the stream's already dead
 QuickStreams.timeout(50, function(stream) {
-	movDocStream.abort()
+movDocStream.abort()
 })</code></pre>
 		</div>
 
@@ -634,14 +719,17 @@ QuickStreams.timeout(50, function(stream) {
 		<i>movDocStream</i> abstracts away the implementation providing a
 		consistent stream interface. All interaction with this stream will
 		reflect onto the underlying, subordinate sequence.</p>
+	</div></minimizable>
 
-		<h2>Binding</h2>
 
-		<p class="subtitle desktop">Streams can form atomic sequences<br>
-		to insure serial execution despite abortion</p>
-		<p class="subtitle mobile">Streams can form atomic sequences
-		to insure serial execution despite abortion</p>
+	<h2>Binding</h2>
 
+	<p class="subtitle desktop">Streams can form atomic sequences<br>
+	to insure serial execution despite abortion</p>
+	<p class="subtitle mobile">Streams can form atomic sequences
+	to insure serial execution despite abortion</p>
+
+	<minimizable><div slot="content">
 		<p>When a sequence is aborted during the execution of an atomic
 		stream - an attached stream won't be awoken when the stream's closed,
 		the control flow will be redirected to the stream defined by the
@@ -660,8 +748,8 @@ QuickStreams.timeout(50, function(stream) {
 		<pre><code class="javascript"
 		>var sequence = http.get('http://server.org/assets')
 .bind(function(stream, assets) {
-	// The log record is obligatory!
-	logger.entry('assets were received:', assets)
+// The log record is obligatory!
+logger.entry('assets were received:', assets)
 })
 .attach(/* ... */)</code></pre>
 		</div>
@@ -681,7 +769,7 @@ QuickStreams.timeout(50, function(stream) {
 		>var sequence = http.get('http://server.org/assets')
 // The log record is obligatory!
 .bind(function(stream, assets) {
-	logger.entry('assets were received:', assets)
+logger.entry('assets were received:', assets)
 })
 // the resource deletion is obligatory as well!
 .bind(http.delete('http://server.org/assets'))
@@ -693,6 +781,23 @@ QuickStreams.timeout(50, function(stream) {
 		and the delete will execute sequentially even if the <i>sequence</i>
 		was aborted during the execution of the atomic <b>http.get</b> stream.
 		</p>
-	</div>
+	</div></minimizable>
+</div>
+
+<div id="footer" class="desktop">
+	<p>Copyright © 2017 Roman Sharkov. All rights reserved.</p>
+	<p><b>QuickStreams</b> is a product of the <a href="https://qbeon.com">
+	QBEON Company</a><br>licensed under the
+	<a href="https://opensource.org/licenses/MIT">MIT License</a>.</p>
+</div>
+
+<div id="footer" class="mobile">
+	<p>Copyright © 2017 Roman Sharkov.<br>All rights reserved.</p>
+	<p><b>QuickStreams</b> is a product<br>of the <a href="https://qbeon.com">
+	QBEON Company</a><br>licensed under the
+	<a href="https://opensource.org/licenses/MIT">MIT License</a>.</p>
+</div>
+
+<script src="app.js"></script>
 </body>
 </html>
