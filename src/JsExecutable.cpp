@@ -11,20 +11,13 @@ quickstreams::qml::JsExecutable::JsExecutable(
 	const QJSValue& function
 ) :
 	_engine(engine),
-	_qmlHandle(nullptr),
 	_function(function)
 {}
-
-void quickstreams::qml::JsExecutable::setQmlHandle(
-	QmlStreamHandle* qmlHandle
-) {
-	_qmlHandle = qmlHandle;
-}
 
 void quickstreams::qml::JsExecutable::execute(const QVariant& data) {
 	// Execute
 	QJSValue result(_function.call({
-		_engine->toScriptValue(*_qmlHandle),
+		_engine->toScriptValue(_qmlHandle),
 		_engine->toScriptValue(data),
 	}));
 

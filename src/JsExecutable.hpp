@@ -19,10 +19,9 @@ class JsExecutable : public Executable {
 
 protected:
 	QQmlEngine* _engine;
-	QmlStreamHandle* _qmlHandle;
+	QmlStreamHandle _qmlHandle;
 	QJSValue _function;
 
-	void setQmlHandle(QmlStreamHandle* qmlHandle);
 	JsExecutable(
 		QQmlEngine* engine,
 		const QJSValue& function

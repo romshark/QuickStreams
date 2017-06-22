@@ -40,7 +40,9 @@ quickstreams::qml::QmlStream* quickstreams::qml::QmlProvider::create(
 	auto stream(new QmlStream(_engine, _provider->internalCreate(
 		Executable::Reference(jsExec), type
 	)));
-	jsExec->setQmlHandle(&stream->_handle);
+
+	// Copy QML stream handle to the independent JavaScript executable
+	jsExec->_qmlHandle = stream->_handle;
 	return stream;
 }
 

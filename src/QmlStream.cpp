@@ -74,7 +74,9 @@ quickstreams::qml::StreamConversion quickstreams::qml::QmlStream::fromJsValue(
 			Executable::Reference(jsExec), type,
 			quickstreams::Stream::CaptionStatus::Free
 		)));
-		jsExec->setQmlHandle(&stream->_handle);
+
+		// Copy QML stream handle to the independent JavaScript executable
+		jsExec->_qmlHandle = stream->_handle;
 		return StreamConversion(stream);
 	} else if(value.toVariant().canConvert<QmlStream*>()) {
 		// Return a wrapper to an existing stream
