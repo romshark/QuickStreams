@@ -6,7 +6,10 @@
 #include <QMetaObject>
 
 quickstreams::Provider::Provider(QObject* parent) :
-	QObject(parent)
+	QObject(parent),
+	_totalCreated(0),
+	_totalExisting(0),
+	_totalActive(0)
 {}
 
 quickstreams::Stream::Reference quickstreams::Provider::internalCreate(
@@ -26,11 +29,36 @@ quickstreams::Stream::Reference quickstreams::Provider::internalCreate(
 		stream, "initialize",
 		Qt::QueuedConnection
 	);
+
 	return reference;
 }
 
 void quickstreams::Provider::registerNew(const Stream::Reference& reference) {
 	_references.insert(reference.data(), reference);
+
+	// Update statistics
+	++_totalCreated;
+	++_totalExisting;
+	totalCreatedChanged();
+	totalExistingChanged();
+}
+
+void quickstreams::Provider::activated() {
+	// Update statistics
+	++_totalActive;
+	totalActiveChanged();
+}
+
+void quickstreams::Provider::finished() {
+	// Update statistics
+	--_totalActive;
+	totalActiveChanged();
+}
+
+void quickstreams::Provider::destroyed() {
+	// Update statistics
+	--_totalExisting;
+	totalExistingChanged();
 }
 
 void quickstreams::Provider::dispose(Stream* stream) {
@@ -51,4 +79,16 @@ quickstreams::Stream::Reference quickstreams::Provider::create(
 		Executable::Reference(new LambdaExecutable(function)),
 		type
 	);
+}
+
+quint64 quickstreams::Provider::totalCreated() const {
+	return _totalCreated;
+}
+
+quint64 quickstreams::Provider::totalExisting() const {
+	return _totalExisting;
+}
+
+quint64 quickstreams::Provider::totalActive() const {
+	return _totalActive;
 }

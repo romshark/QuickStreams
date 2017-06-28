@@ -26,6 +26,9 @@ protected:
 
 protected:
 	ReferenceMap _references;
+	quint64 _totalCreated;
+	quint64 _totalExisting;
+	quint64 _totalActive;
 
 	Stream::Reference internalCreate(
 		const Executable::Reference& executable,
@@ -33,6 +36,9 @@ protected:
 	);
 
 	void registerNew(const Stream::Reference& reference);
+	void activated();
+	void finished();
+	void destroyed();
 	void dispose(Stream* stream);
 	Stream::Reference reference(Stream* stream) const;
 
@@ -42,6 +48,15 @@ public:
 		LambdaExecutable::Function function,
 		Stream::Type type = Stream::Type::Atomic
 	);
+
+	quint64 totalCreated() const;
+	quint64 totalExisting() const;
+	quint64 totalActive() const;
+
+signals:
+	void totalCreatedChanged();
+	void totalExistingChanged();
+	void totalActiveChanged();
 };
 
 } // quickstreams

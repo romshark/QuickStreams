@@ -93,6 +93,8 @@ protected:
 		Type type = Type::Atomic,
 		CaptionStatus captionStatus = CaptionStatus::Free
 	);
+	~Stream();
+
 	Reference create(
 		const Executable::Reference& executable,
 		Type type,

@@ -15,7 +15,20 @@ quickstreams::qml::QmlProvider::QmlProvider(
 	QObject(provider),
 	_provider(provider),
 	_engine(engine)
-{}
+{
+	connect(
+		provider, &Provider::totalCreatedChanged,
+		this, &QmlProvider::totalCreatedChanged
+	);
+	connect(
+		provider, &Provider::totalExistingChanged,
+		this, &QmlProvider::totalExistingChanged
+	);
+	connect(
+		provider, &Provider::totalActiveChanged,
+		this, &QmlProvider::totalActiveChanged
+	);
+}
 
 quickstreams::qml::QmlStream* quickstreams::qml::QmlProvider::toQml(
 	const quickstreams::Stream::Reference& stream
@@ -52,4 +65,16 @@ quickstreams::Stream::Type quickstreams::qml::QmlProvider::Atomic() const {
 
 quickstreams::Stream::Type quickstreams::qml::QmlProvider::Abortable() const {
 	return quickstreams::Stream::Type::Abortable;
+}
+
+quint64 quickstreams::qml::QmlProvider::totalCreated() const {
+	return _provider->totalCreated();
+}
+
+quint64 quickstreams::qml::QmlProvider::totalExisting() const {
+	return _provider->totalExisting();
+}
+
+quint64 quickstreams::qml::QmlProvider::totalActive() const {
+	return _provider->totalActive();
 }

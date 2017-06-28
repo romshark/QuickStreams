@@ -71,6 +71,10 @@ quickstreams::Stream::Stream(
 	);
 }
 
+quickstreams::Stream::~Stream() {
+	_provider->destroyed();
+}
+
 quickstreams::Stream::Reference quickstreams::Stream::create(
 	const Executable::Reference& executable,
 	Type type,
@@ -401,10 +405,13 @@ void quickstreams::Stream::die() {
 	case State::New:
 		_state = State::Canceled;
 		break;
+	case State::Active:
+		_provider->finished();
 	default:
 		_state = State::Dead;
 		break;
 	}
+
 	_provider->dispose(this);
 
 	// Eliminate all subordinate streams
@@ -529,6 +536,7 @@ void quickstreams::Stream::awake(
 	} else if(_state == State::New) {
 		_state = State::Active;
 	}
+	_provider->activated();
 
 	// if function is not callable the stream is considered closed
 	if(_executable.isNull()) {
