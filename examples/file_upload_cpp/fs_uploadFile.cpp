@@ -59,32 +59,27 @@ Stream::Reference Filesystem::uploadFile(int fileSize, int chunkSize) {
 			// It will ensure that the file allocation milestone is marked
 			// as achieved even if the chain was aborted while the filesystem
 			// was allocating the file for proper clean up
-			->bind([mainStream, transaction](
-				const StreamHandle& stream, const QVariant& newFileId
-			) {
+			->bind([mainStream, transaction](const QVariant& newFileId) {
 				transaction->allocated = true;
 				transaction->fileId = newFileId.toString();
 				mainStream.event("allocated", QVariantMap({
 					{"id", transaction->fileId}
 				}));
-				stream.close();
-				return nullptr;
+				return QVariant();
 			})
 
 			// Begin uploading the file chunk after chunk
 			// when the file has successfuly been allocated
-			->attach([this, transaction, chunkSize](
-				const StreamHandle& stream,
+			->attach(Stream::Wrap([this, transaction, chunkSize](
 				const QVariant& data
 			) {
-				Q_UNUSED(stream)
 				Q_UNUSED(data)
 				return write(
 					transaction->fileId,
 					transaction->uploadProgress,
 					chunkSize
 				);
-			})
+			}))
 
 			// Indefinitely retry writing chunks in case of timeout errors
 			->retry({(int)Error::TimeoutError})
@@ -114,14 +109,10 @@ Stream::Reference Filesystem::uploadFile(int fileSize, int chunkSize) {
 				return false;
 			})
 			// Close main stream when all chunks have successfuly been written
-			->attach([mainStream, transaction](
-				const StreamHandle& stream,
-				const QVariant& data
-			) {
+			->attach([mainStream, transaction](const QVariant& data) {
 				Q_UNUSED(data)
 				mainStream.close(transaction->fileId);
-				stream.close();
-				return nullptr;
+				return QVariant();
 			})
 		);
 
@@ -141,54 +132,38 @@ Stream::Reference Filesystem::uploadFile(int fileSize, int chunkSize) {
 
 			// Try to remove the unfinished file
 			remove(transaction->fileId)
-			->attach([mainStream](
-				const StreamHandle& stream,
-				const QVariant& data
-			) {
+			->attach([mainStream](const QVariant& data) {
 				Q_UNUSED(data)
 				mainStream.close();
-				stream.close();
-				return nullptr;
+				return QVariant();
 			})
 			// Catch unexpected clean up errors
 			// and fail the main stream in such a case
-			->failure([mainStream](
-				const StreamHandle& stream,
-				const QVariant& error
-			) {
+			->failure([mainStream](const QVariant& error) {
 				mainStream.fail(error);
-				stream.close();
-				return nullptr;
+				return QVariant();
 			});
 		});
 
 		// Catch unexpected errors during chain execution
 		// and clean up before failing the main stream
-		sequence->failure([mainStream, cleanupSequence](
-			const StreamHandle& stream,
-			const QVariant& error
-		) {
+		sequence->failure([mainStream, cleanupSequence](const QVariant& error) {
 			qDebug() << "FS::uploadFile > catch failed file upload";
 			mainStream.event("cleanup_after_error", error);
 			cleanupSequence(error);
-			stream.close();
-			return nullptr;
+			return QVariant();
 		});
 
 		// Clean up before abort-closing the main stream
 		// if the upload chain was aborted
 		sequence->abortion([mainStream, cleanupSequence](
-			const StreamHandle& stream,
 			const QVariant& error
 		) {
 			qDebug() << "FS::uploadFile > catch aborted file upload";
 			mainStream.event("cleanup_after_abortion");
 			cleanupSequence(error);
-			stream.close();
-			return nullptr;
+			return QVariant();
 		});
-
-		return nullptr;
 	}, Stream::Type::Abortable);
 }
 

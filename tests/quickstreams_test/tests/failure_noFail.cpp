@@ -8,32 +8,24 @@ void QuickStreamsTest::failure_noFail() {
 	Trigger cpFailure;
 
 	auto firstStream = streams->create([&](
-		const StreamHandle& stream,
-		const QVariant& data
-	) -> Stream::Reference {
+		const StreamHandle& stream, const QVariant& data
+	) {
 		Q_UNUSED(data)
 		stream.close();
 		cpFirst.trigger();
-		return nullptr;
 	});
 
-	auto attachedStream = firstStream->attach([&](
-		const StreamHandle& stream, const QVariant& data
-	) {
+	auto attachedStream = firstStream->attach([&](const QVariant& data) {
 		Q_UNUSED(data)
-		stream.close();
 		cpSecond.trigger();
-		return nullptr;
+		return QVariant();
 	});
 
-	auto failureStream = attachedStream->failure([&](
-		const StreamHandle& stream, const QVariant& data
-	) {
+	auto failureStream = attachedStream->failure([&](const QVariant& data) {
 		Q_UNUSED(data)
-		Q_UNUSED(stream)
 		// This failure fallback stream should never be executed
 		cpFailure.trigger();
-		return nullptr;
+		return QVariant();
 	});
 
 	Q_UNUSED(failureStream)

@@ -2,6 +2,8 @@
 #include "StreamHandle.hpp"
 #include "Executable.hpp"
 #include "LambdaExecutable.hpp"
+#include "LambdaSyncExecutable.hpp"
+#include "LambdaWrapper.hpp"
 #include "Repeater.hpp"
 #include "LambdaRepeater.hpp"
 #include <QJSValue>
@@ -12,6 +14,12 @@
 #include <QTimer>
 #include <QSharedPointer>
 #include <QDebug>
+
+quickstreams::Executable::Reference quickstreams::Stream::Wrap(
+	quickstreams::LambdaWrapper::Function function
+) {
+	return Executable::Reference(new LambdaWrapper(function));
+}
 
 quickstreams::Stream::Stream(
 	ProviderInterface* provider,
@@ -633,9 +641,9 @@ quickstreams::Stream::Reference quickstreams::Stream::attach(
 }
 
 quickstreams::Stream::Reference quickstreams::Stream::attach(
-	LambdaExecutable::Function prototype
+	LambdaSyncExecutable::Function function
 ) {
-	return attach(Executable::Reference(new LambdaExecutable(prototype)));
+	return attach(Executable::Reference(new LambdaSyncExecutable(function)));
 }
 
 quickstreams::Stream::Reference quickstreams::Stream::attach(
@@ -661,9 +669,9 @@ quickstreams::Stream::Reference quickstreams::Stream::bind(
 }
 
 quickstreams::Stream::Reference quickstreams::Stream::bind(
-	LambdaExecutable::Function prototype
+	LambdaSyncExecutable::Function function
 ) {
-	return bind(Executable::Reference(new LambdaExecutable(prototype)));
+	return bind(Executable::Reference(new LambdaSyncExecutable(function)));
 }
 
 quickstreams::Stream::Reference quickstreams::Stream::bind(
@@ -699,9 +707,9 @@ quickstreams::Stream::Reference quickstreams::Stream::failure(
 }
 
 quickstreams::Stream::Reference quickstreams::Stream::failure(
-	LambdaExecutable::Function prototype
+	LambdaSyncExecutable::Function function
 ) {
-	return failure(Executable::Reference(new LambdaExecutable(prototype)));
+	return failure(Executable::Reference(new LambdaSyncExecutable(function)));
 }
 
 quickstreams::Stream::Reference quickstreams::Stream::failure(
@@ -727,9 +735,9 @@ quickstreams::Stream::Reference quickstreams::Stream::abortion(
 }
 
 quickstreams::Stream::Reference quickstreams::Stream::abortion(
-	LambdaExecutable::Function prototype
+	LambdaSyncExecutable::Function function
 ) {
-	return abortion(Executable::Reference(new LambdaExecutable(prototype)));
+	return abortion(Executable::Reference(new LambdaSyncExecutable(function)));
 }
 
 quickstreams::Stream::Reference quickstreams::Stream::abortion(

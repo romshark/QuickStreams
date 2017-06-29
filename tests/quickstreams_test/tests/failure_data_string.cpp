@@ -11,21 +11,17 @@ void QuickStreamsTest::failure_data_string() {
 
 	auto firstStream = streams->create([&](
 		const StreamHandle& stream, const QVariant& data
-	) -> Stream::Reference {
-		Q_UNUSED(stream)
+	) {
 		Q_UNUSED(data)
 		cpFirst.trigger();
 		throw "something went wrong";
-		return nullptr;
+		stream.close();
 	});
 
-	auto failureStream = firstStream->failure([&](
-		const StreamHandle& stream, const QVariant& error
-	) {
+	auto failureStream = firstStream->failure([&](const QVariant& error) {
 		receivedError = error;
 		cpFailure.trigger();
-		stream.close();
-		return nullptr;
+		return QVariant();
 	});
 
 	Q_UNUSED(failureStream)

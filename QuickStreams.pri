@@ -9,7 +9,10 @@ HEADERS += \
 	$$PWD/src/Provider.hpp \
 	$$PWD/src/QmlProvider.hpp \
 	$$PWD/src/LambdaExecutable.hpp \
+	$$PWD/src/LambdaSyncExecutable.hpp \
+	$$PWD/src/LambdaWrapper.hpp \
 	$$PWD/src/JsExecutable.hpp \
+	$$PWD/src/JsSyncExecutable.hpp \
 	$$PWD/src/QmlStream.hpp \
 	$$PWD/src/Retryer.hpp \
 	$$PWD/src/LambdaRepeater.hpp \
@@ -28,7 +31,10 @@ SOURCES += \
 	$$PWD/src/Provider.cpp \
 	$$PWD/src/QmlProvider.cpp \
 	$$PWD/src/LambdaExecutable.cpp \
+	$$PWD/src/LambdaSyncExecutable.cpp \
+	$$PWD/src/LambdaWrapper.cpp \
 	$$PWD/src/JsExecutable.cpp \
+	$$PWD/src/JsSyncExecutable.cpp \
 	$$PWD/src/QmlStream.cpp \
 	$$PWD/src/Retryer.cpp \
 	$$PWD/src/LambdaRepeater.cpp \

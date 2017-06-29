@@ -19,6 +19,7 @@ namespace qml {
 
 class QmlProvider;
 class JsExecutable;
+class JsSyncExecutable;
 
 // The stream conversion struct helps converting JavaScript prototypes into
 // QmlStream instances by either creating one from an existing stream wrapped
@@ -43,6 +44,7 @@ class QmlStream : public QObject {
 	friend class QmlProvider;
 	friend class StreamConversion;
 	friend class JsExecutable;
+	friend class JsSyncExecutable;
 
 protected:
 	QQmlEngine* _engine;

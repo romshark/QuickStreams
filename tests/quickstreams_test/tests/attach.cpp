@@ -12,23 +12,20 @@ void QuickStreamsTest::attach() {
 	auto createdStream = streams->create([&](
 		const StreamHandle& stream,
 		const QVariant& data
-	) -> Stream::Reference {
+	) {
 		Q_UNUSED(data)
+		awakeningOrder.append("created");
 		stream.close("testdata");
 		cpCreated.trigger();
-		awakeningOrder.append("created");
-		return nullptr;
 	});
 
 	auto attachedStream = createdStream->attach([&](
-		const StreamHandle& stream,
 		const QVariant& data
 	) {
 		passedData = data;
-		stream.close();
-		cpAttached.trigger();
 		awakeningOrder.append("attached");
-		return nullptr;
+		cpAttached.trigger();
+		return QVariant();
 	});
 
 	Q_UNUSED(attachedStream)

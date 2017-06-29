@@ -4,6 +4,8 @@
 #include "StreamHandle.hpp"
 #include "Executable.hpp"
 #include "LambdaExecutable.hpp"
+#include "LambdaSyncExecutable.hpp"
+#include "LambdaWrapper.hpp"
 #include "Repeater.hpp"
 #include "LambdaRepeater.hpp"
 #include "Retryer.hpp"
@@ -69,6 +71,8 @@ public:
 		Both
 	};
 	Q_ENUM(ControlFlowBranching)
+
+	static Executable::Reference Wrap(LambdaWrapper::Function function);
 
 protected:
 	ProviderInterface* _provider;
@@ -222,7 +226,7 @@ public:
 	//
 	// NOTICE: the next stream will inherit the superordinate streams parent.
 	Reference attach(const Executable::Reference& executable);
-	Reference attach(LambdaExecutable::Function prototype);
+	Reference attach(LambdaSyncExecutable::Function function);
 	Reference attach(const Reference& stream);
 
 	// bind is a stream operator, it creates a new appended stream
@@ -236,7 +240,7 @@ public:
 	// NOTICE: Streams appended to abortable streams won't be awoken
 	// if the abortable stream was aborted.
 	Reference bind(const Executable::Reference& executable);
-	Reference bind(LambdaExecutable::Function prototype);
+	Reference bind(LambdaSyncExecutable::Function function);
 	Reference bind(const Reference& stream);
 
 	// event is a stream operator, it creates and returns a new stream
@@ -247,14 +251,14 @@ public:
 	// stream chain. It returns a new stream that is awoken
 	// when the superordinate stream chain fails.
 	Reference failure(const Executable::Reference& executable);
-	Reference failure(LambdaExecutable::Function prototype);
+	Reference failure(LambdaSyncExecutable::Function function);
 	Reference failure(const Reference& stream);
 
 	// abortion is a chain operator that acts upon the superordinate
 	// stream chain. It returns a new stream that is awoken
 	// when the superordinate stream chain is aborted.
 	Reference abortion(const Executable::Reference& executable);
-	Reference abortion(LambdaExecutable::Function prototype);
+	Reference abortion(LambdaSyncExecutable::Function function);
 	Reference abortion(const Reference& stream);
 
 	// abort is a stream method that allows to abort this stream.

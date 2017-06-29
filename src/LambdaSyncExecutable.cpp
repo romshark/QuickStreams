@@ -1,13 +1,13 @@
-#include "LambdaExecutable.hpp"
+#include "LambdaSyncExecutable.hpp"
 #include <QVariant>
 #include <exception>
 #include <QSharedPointer>
 
-quickstreams::LambdaExecutable::LambdaExecutable(Function function) :
+quickstreams::LambdaSyncExecutable::LambdaSyncExecutable(Function function) :
 	_function(function)
 {}
 
-void quickstreams::LambdaExecutable::execute(const QVariant& data) {
+void quickstreams::LambdaSyncExecutable::execute(const QVariant& data) {
 	// If the function is null then close the stream referencing this handle
 	// because otherwise it would try to execute it causing a segfault
 	if(!_function) {
@@ -17,8 +17,8 @@ void quickstreams::LambdaExecutable::execute(const QVariant& data) {
 
 	// Try to execute
 	try {
-		// Execute and forward closure responsibility to the user
-		_function(*_handle, data);
+		// Execute and keep closure responsibility by the executable
+		_handle->close(_function(data));
 	} catch(const std::exception& error) {
 		_error.reset(new QVariant(error.what()));
 	} catch(...) {

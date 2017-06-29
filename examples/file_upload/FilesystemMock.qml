@@ -22,12 +22,13 @@ Item {
 			console.log('FS::allocateFile > allocate file')
 
 			// Create the allocOperation atomic stream
-			var allocOperation = QuickStreams.create(function() {
+			var allocOperation = QuickStreams.create(function(stream) {
 				var newId = helper.randomId(8)
 				console.log('FS::allocateFile > file allocated', newId)
 
 				// Close the returned main stream
 				mainStream.close(newId)
+				stream.close()
 			})
 
 			// Delay the awakening of the allocOperation stream
@@ -54,9 +55,10 @@ Item {
 			// Don't worry about this stream not being closed,
 			// It won't become a zombie, because the mainStream
 			// is properly closed and will erase the adopted stream on closure
-			return QuickStreams.create(function() {
+			return QuickStreams.create(function(stream) {
 				console.log('FS::write > write completed')
 				mainStream.close()
+				stream.close()
 			})
 			.delay(helper.randomNetLatency())
 		})
@@ -71,9 +73,10 @@ Item {
 			// Return a stream during the execution of mainStream
 			// will make mainStream wrap this stream
 			// making them both become one
-			return QuickStreams.create(function() {
+			return QuickStreams.create(function(stream) {
 				console.log('FS::remove > file', fileId, 'has been removed')
 				mainStream.close()
+				stream.close()
 			})
 			.delay(helper.randomNetLatency())
 		})
@@ -116,7 +119,7 @@ Item {
 			// It will ensure that the file allocation milestone is marked
 			// as achieved even if the chain was aborted while the filesystem
 			// was allocating the file for proper clean up
-			.bind(function(stream, newFileId) {
+			.bind(function(newFileId) {
 				// mark allocation milestone
 				allocated = true
 
@@ -124,7 +127,6 @@ Item {
 				// after a successful file allocation
 				fileId = newFileId
 				mainStream.event('allocated', {id: fileId})
-				stream.close()
 			})
 
 			// Begin uploading the file chunk after chunk
@@ -164,7 +166,7 @@ Item {
 			})
 
 			// Close main stream when all chunks have successfuly been written
-			.attach(function(stream) {
+			.attach(function() {
 				mainStream.close(fileId)
 			})
 
@@ -182,12 +184,12 @@ Item {
 
 				// Try to remove the unfinished file
 				filesystem.remove(fileId)
-				.attach(function(stream) {
+				.attach(function() {
 					mainStream.close()
 				})
 				// Catch unexpected clean up errors
 				// and fail the main stream in such a case
-				.failure(function(stream, error) {
+				.failure(function(error) {
 					mainStream.fail(error)
 				})
 
@@ -198,7 +200,7 @@ Item {
 
 			// Catch unexpected errors during chain execution
 			// and clean up before failing the main stream
-			chain.failure(function(stream, error) {
+			chain.failure(function(error) {
 				console.log('FS::uploadFile > catch failed file upload')
 				mainStream.event('cleanup_after_error', error)
 				cleanup(error)
@@ -206,7 +208,7 @@ Item {
 
 			// Clean up before abort-closing the main stream
 			// if the upload chain was aborted
-			chain.abortion(function(stream) {
+			chain.abortion(function() {
 				console.log('FS::uploadFile > catch aborted file upload')
 				mainStream.event('cleanup_after_abortion')
 				cleanup()

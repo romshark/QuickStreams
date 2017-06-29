@@ -21,8 +21,6 @@ quickstreams::Stream::Reference Filesystem::allocateFile() {
 			QString newId(Filesystem::randomId(8));
 			qDebug() << "FS::allocateFile > file allocated: " << newId;
 			stream.close(newId);
-			return nullptr;
 		});
-		return nullptr;
 	});
 }

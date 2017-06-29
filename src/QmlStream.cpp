@@ -3,6 +3,7 @@
 #include "StreamHandle.hpp"
 #include "Executable.hpp"
 #include "JsExecutable.hpp"
+#include "JsSyncExecutable.hpp"
 #include "JsCallback.hpp"
 #include "JsRepeater.hpp"
 #include "ProviderInterface.hpp"
@@ -69,7 +70,7 @@ quickstreams::qml::StreamConversion quickstreams::qml::QmlStream::fromJsValue(
 ) {
 	if(value.isCallable()) {
 		// Return a newly created wrapper wrapping a new stream
-		auto jsExec(new JsExecutable(_engine, value));
+		auto jsExec(new JsSyncExecutable(_engine, value));
 		auto stream(new QmlStream(_engine, _reference->create(
 			Executable::Reference(jsExec), type,
 			quickstreams::Stream::CaptionStatus::Free

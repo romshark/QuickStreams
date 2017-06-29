@@ -11,40 +11,30 @@ void QuickStreamsTest::failure_sequenceTail() {
 
 	auto firstStream = streams->create([&](
 		const StreamHandle& stream, const QVariant& data
-	) -> Stream::Reference {
+	) {
 		Q_UNUSED(data)
 		cpFirst.trigger();
 		// Commit failure here
 		throw std::runtime_error("something went wrong");
 		stream.close();
-		return nullptr;
 	});
 
-	auto secondStream = firstStream->attach([&](
-		const StreamHandle& stream, const QVariant& data
-	) {
+	auto secondStream = firstStream->attach([&](const QVariant& data) {
 		Q_UNUSED(data)
 		cpSecond.trigger();
-		stream.close();
-		return nullptr;
+		return QVariant();
 	});
 
-	auto thirdStream = secondStream->attach([&](
-		const StreamHandle& stream, const QVariant& data
-	) {
+	auto thirdStream = secondStream->attach([&](const QVariant& data) {
 		Q_UNUSED(data)
 		cpThird.trigger();
-		stream.close();
-		return nullptr;
+		return QVariant();
 	});
 
-	auto failureStream = thirdStream->failure([&](
-		const StreamHandle& stream, const QVariant& error
-	) {
+	auto failureStream = thirdStream->failure([&](const QVariant& error) {
 		Q_UNUSED(error)
 		cpFailure.trigger();
-		stream.close();
-		return nullptr;
+		return QVariant();
 	});
 
 	Q_UNUSED(failureStream)

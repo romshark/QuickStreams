@@ -20,8 +20,6 @@ Stream::Reference Filesystem::remove(const QString& fileId) {
 		QTimer::singleShot(randomLatency(), [stream, fileId]() {
 			qDebug() << "FS::remove > file " << fileId << " has been removed";
 			stream.close();
-			return nullptr;
 		});
-		return nullptr;
 	});
 }

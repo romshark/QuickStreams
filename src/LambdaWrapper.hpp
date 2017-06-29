@@ -5,25 +5,26 @@
 #include <functional>
 #include <QVariant>
 #include <QMetaType>
+#include <QSharedPointer>
 
 namespace quickstreams {
 
 class Provider;
 class Stream;
 
-class LambdaExecutable : public Executable {
+class LambdaWrapper : public Executable {
 	friend class Provider;
 	friend class Stream;
 
+	typedef QSharedPointer<Stream> StreamReference;
+
 public:
-	typedef std::function<
-		void (const StreamHandle&, const QVariant&)
-	> Function;
+	typedef std::function<StreamReference (const QVariant&)> Function;
 
 protected:
 	Function _function;
 
-	LambdaExecutable(Function function);
+	LambdaWrapper(Function function);
 
 public:
 	void execute(const QVariant& data);

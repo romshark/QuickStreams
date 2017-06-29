@@ -13,42 +13,35 @@ void QuickStreamsTest::failure_recoverySequence() {
 		const StreamHandle& stream, const QVariant& data
 	) -> Stream::Reference {
 		Q_UNUSED(data)
+		awakeningOrder.append("first");
 		cpFirst.trigger();
 		// Commit failure here
-		awakeningOrder.append("first");
 		throw std::runtime_error("something went wrong");
 		stream.close();
 		return nullptr;
 	});
 
-	auto failureStream = firstStream->failure([&](
-		const StreamHandle& stream, const QVariant& error
-	) {
+	auto failureStream = firstStream->failure([&](const QVariant& error) {
 		Q_UNUSED(error)
-		cpFailure.trigger();
-		stream.close();
 		awakeningOrder.append("failure");
-		return nullptr;
+		cpFailure.trigger();
+		return QVariant();
 	});
 
-	auto firstRecoveryStream = failureStream->attach([&](
-		const StreamHandle& stream, const QVariant& data
-	) {
+	auto firstRecoveryStream = failureStream->attach([&](const QVariant& data) {
 		Q_UNUSED(data)
-		cpFirstRecovery.trigger();
-		stream.close();
 		awakeningOrder.append("recovery - first attached");
-		return nullptr;
+		cpFirstRecovery.trigger();
+		return QVariant();
 	});
 
 	auto secondRecoveryStream = firstRecoveryStream->bind([&](
-		const StreamHandle& stream, const QVariant& data
+		const QVariant& data
 	) {
 		Q_UNUSED(data)
-		cpSecondRecovery.trigger();
-		stream.close();
 		awakeningOrder.append("recovery - second attached");
-		return nullptr;
+		cpSecondRecovery.trigger();
+		return QVariant();
 	});
 
 	Q_UNUSED(secondRecoveryStream)

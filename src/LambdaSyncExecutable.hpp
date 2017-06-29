@@ -11,19 +11,17 @@ namespace quickstreams {
 class Provider;
 class Stream;
 
-class LambdaExecutable : public Executable {
+class LambdaSyncExecutable : public Executable {
 	friend class Provider;
 	friend class Stream;
 
 public:
-	typedef std::function<
-		void (const StreamHandle&, const QVariant&)
-	> Function;
+	typedef std::function<QVariant (const QVariant&)> Function;
 
 protected:
 	Function _function;
 
-	LambdaExecutable(Function function);
+	LambdaSyncExecutable(Function function);
 
 public:
 	void execute(const QVariant& data);

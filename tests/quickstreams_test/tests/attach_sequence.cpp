@@ -21,42 +21,32 @@ void QuickStreamsTest::attach_sequence() {
 
 	auto firstStream = streams->create([&](
 		const StreamHandle& stream, const QVariant& data
-	) -> Stream::Reference {
+	) {
 		Q_UNUSED(data)
+		awakeningOrder.append("first");
 		stream.close(secondData);
 		cpFirst.trigger();
-		awakeningOrder.append("first");
-		return nullptr;
 	});
 
-	auto secondStream = firstStream->attach([&](
-		const StreamHandle& stream, const QVariant& data
-	) {
+	auto secondStream = firstStream->attach([&](const QVariant& data) {
 		secondReceivedData = data;
-		stream.close(thirdData);
-		cpSecond.trigger();
 		awakeningOrder.append("second");
-		return nullptr;
+		cpSecond.trigger();
+		return QVariant(thirdData);
 	});
 
-	auto thirdStream = secondStream->attach([&](
-		const StreamHandle& stream, const QVariant& data
-	) {
+	auto thirdStream = secondStream->attach([&](const QVariant& data) {
 		thirdReceivedData = data;
-		stream.close(fourthData);
-		cpThird.trigger();
 		awakeningOrder.append("third");
-		return nullptr;
+		cpThird.trigger();
+		return QVariant(fourthData);
 	});
 
-	auto fourthStream = thirdStream->attach([&](
-		const StreamHandle& stream, const QVariant& data
-	) {
+	auto fourthStream = thirdStream->attach([&](const QVariant& data) {
 		fourthReceivedData = data;
-		stream.close();
-		cpFourth.trigger();
 		awakeningOrder.append("fourth");
-		return nullptr;
+		cpFourth.trigger();
+		return QVariant();
 	});
 
 	Q_UNUSED(fourthStream)

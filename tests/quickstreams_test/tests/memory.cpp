@@ -11,47 +11,34 @@ void QuickStreamsTest::memory() {
 
 	auto firstStream = streams->create([&](
 		const StreamHandle& stream, const QVariant& data
-	) -> Stream::Reference {
+	) {
 		Q_UNUSED(data)
 		stream.close();
 		cpFirst.trigger();
-		return nullptr;
 	});
 
-	auto secondStream = firstStream->attach([&](
-		const StreamHandle& stream, const QVariant& data
-	) {
+	auto secondStream = firstStream->attach([&](const QVariant& data) {
 		Q_UNUSED(data)
-		stream.close();
 		cpSecond.trigger();
-		return nullptr;
+		return QVariant();
 	});
 
-	auto thirdStream = secondStream->attach([&](
-		const StreamHandle& stream, const QVariant& data
-	) {
+	auto thirdStream = secondStream->attach([&](const QVariant& data) {
 		Q_UNUSED(data)
-		stream.close();
 		cpThird.trigger();
-		return nullptr;
+		return QVariant();
 	});
 
-	auto fourthStream = thirdStream->attach([&](
-		const StreamHandle& stream, const QVariant& data
-	) {
+	auto fourthStream = thirdStream->attach([&](const QVariant& data) {
 		Q_UNUSED(data)
-		stream.close();
 		cpFourth.trigger();
-		return nullptr;
+		return QVariant();
 	});
 
-	auto failureStream = fourthStream->failure([&](
-		const StreamHandle& stream, const QVariant& error
-	) {
+	auto failureStream = fourthStream->failure([&](const QVariant& error) {
 		Q_UNUSED(error)
-		stream.close();
 		cpFailure.trigger();
-		return nullptr;
+		return QVariant();
 	});
 
 	QCOMPARE(streams->totalCreated(), quint64(5));

@@ -28,17 +28,14 @@ Stream::Reference Filesystem::write(
 		mainStream.adopt(_streamProvider->create([
 			mainStream, fileId, position, length
 		](
-			const StreamHandle& stream,
-			const QVariant& data
+			const StreamHandle& stream, const QVariant& data
 		) {
 			Q_UNUSED(stream)
 			Q_UNUSED(data)
 			qDebug() << "FS::write > write to " << fileId
 				<< " (" << position << ":" << length << ") completed";
 			mainStream.close();
-			return nullptr;
 		}))
 		->delay(randomLatency());
-		return nullptr;
 	});
 }

@@ -21,7 +21,8 @@ void quickstreams::qml::JsExecutable::execute(const QVariant& data) {
 		_engine->toScriptValue(data),
 	}));
 
-	// Evaluate execution results
+	// Evaluate execution results. If a stream was returned then wrap it;
+	// If error was returned then remember the error for later handling.
 	if(result.toVariant().canConvert<quickstreams::qml::QmlStream*>()) {
 		_returnedStream = qjsvalue_cast<quickstreams::qml::QmlStream*>(
 			result
