@@ -25,6 +25,7 @@ private slots:
 	void failure_data_stdRuntimeError();
 	void failure_data_string();
 
-	// Memory tests
+	// Memory and state management tests
+	void sequenceInitialization();
 	void memory();
 };

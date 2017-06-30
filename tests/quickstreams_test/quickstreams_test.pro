@@ -16,7 +16,8 @@ SOURCES +=  \
     tests/failure_data_string.cpp \
     tests/failure_recoverySequence.cpp \
     tests/attach_sequence.cpp \
-    tests/memory.cpp
+    tests/memory.cpp \
+    tests/sequenceInitialization.cpp
 
 HEADERS += \
     Trigger.hpp \
