@@ -6,6 +6,7 @@
 #include "LambdaWrapper.hpp"
 #include "Repeater.hpp"
 #include "LambdaRepeater.hpp"
+#include <exception>
 #include <QJSValue>
 #include <QList>
 #include <QString>
@@ -30,7 +31,7 @@ quickstreams::Stream::Stream(
 	QObject(nullptr),
 	_provider(provider),
 	_type(type),
-	_state(State::New),
+	_state(State::Initializing),
 	_conFlowBranching(ControlFlowBranching::None),
 	_captured(Captured::None),
 	_captionStatus(captionStatus),
@@ -95,156 +96,167 @@ quickstreams::Stream::Reference quickstreams::Stream::create(
 	return reference;
 }
 
-bool quickstreams::Stream::cannotAttach() const {
-	//A stream cannot attach-capture multiple other streams
-	if(_captured != Captured::None) {
-		qWarning() << "CAUTION:"
-			" Attempted to attach a stream (created from a prototype)"
-			" to a stream that already captures another one!";
-		return true;
-	}
-	return false;
+void quickstreams::Stream::verifyAttach() const {
+	// Attach operator cannot be used past the initialization phase
+	if(_state != State::Initializing) throw std::logic_error(
+		"QuickStreams - FATAL ERROR: "
+		"Attempted to use the attach operator during the runtime!"
+	);
+
+	// A stream cannot attach-capture multiple other streams
+	if(_captured != Captured::None) throw std::logic_error(
+		"QuickStreams - FATAL ERROR: "
+		"Attempted to attach a stream (created from a prototype) "
+		"to a stream that already captures another one!"
+	);
 }
 
-bool quickstreams::Stream::cannotAttachStream(const Reference& stream) const {
-	// A stream cannot attach-capture itself
-	if(stream.data() == this) {
-		qWarning() << "CAUTION: Attempted to attach a stream to itself!";
-		return true;
-	}
+void quickstreams::Stream::verifyAttachStream(const Reference& stream) const {
+	verifyAttach();
 
-	if(cannotAttach()) return true;
+	// A stream cannot attach-capture itself
+	if(stream.data() == this) throw std::logic_error(
+		"QuickStreams - FATAL ERROR: "
+		"Attempted to attach a stream to itself!"
+	);
 
 	// A stream cannot attach-capture a non-free stream
-	if(stream->_captionStatus != CaptionStatus::Free) {
-		qWarning() << "CAUTION: Attempted to attach a non-free stream!";
-		return true;
-	}
-
-	return false;
+	if(stream->_captionStatus != CaptionStatus::Free) throw std::logic_error(
+		"QuickStreams - FATAL ERROR: "
+		"Attempted to attach a non-free stream!"
+	);
 }
 
-bool quickstreams::Stream::cannotBind() const {
+void quickstreams::Stream::verifyBind() const {
+	// Bind operator cannot be used past the initialization phase
+	if(_state != State::Initializing) throw std::logic_error(
+		"QuickStreams - FATAL ERROR: "
+		"Attempted to use the bind operator during the runtime!"
+	);
+
 	//A stream cannot bind-capture multiple other streams
-	if(_captured != Captured::None) {
-		qWarning() << "CAUTION:"
-			" Attempted to bind a stream (created from a prototype)"
-			" to a stream that already captures another one!";
-		return true;
-	}
-	return false;
+	if(_captured != Captured::None) throw std::logic_error(
+		"QuickStreams - FATAL ERROR: "
+		"Attempted to bind a stream (created from a prototype) "
+		"to a stream that already captures another one!"
+	);
 }
 
-bool quickstreams::Stream::cannotBindStream(const Reference& stream) const {
-	// A stream cannot bind-capture itself
-	if(stream.data() == this) {
-		qWarning() << "CAUTION: Attempted to bind a stream to itself!";
-		return true;
-	}
+void quickstreams::Stream::verifyBindStream(const Reference& stream) const {
+	verifyBind();
 
-	if(cannotBind()) return true;
+	// A stream cannot bind-capture itself
+	if(stream.data() == this) throw std::logic_error(
+		"QuickStreams - FATAL ERROR: "
+		"Attempted to bind a stream to itself!"
+	);
 
 	// A stream cannot bind-capture a non-free stream
-	if(stream->_captionStatus != CaptionStatus::Free) {
-		qWarning() << "CAUTION: Attempted to bind a non-free stream!";
-		return true;
-	}
-
-	return false;
+	if(stream->_captionStatus != CaptionStatus::Free) throw std::logic_error(
+		"QuickStreams - FATAL ERROR: "
+		"Attempted to bind a non-free stream!"
+	);
 }
 
-bool quickstreams::Stream::cannotBranchFailure() const {
+void quickstreams::Stream::verifyBranchFailure() const {
+	// Failure operator cannot be used past the initialization phase
+	if(_state != State::Initializing) throw std::logic_error(
+		"QuickStreams - FATAL ERROR: "
+		"Attempted to use the failure operator during the runtime!"
+	);
+
 	// If this stream already registered a failure sequence
 	// it therefore cannot register yet another one
 	switch(_conFlowBranching) {
 	case ControlFlowBranching::Failure:
 	case ControlFlowBranching::Both:
-		qWarning() << "CAUTION:"
-			" Attempted to register a failure sequence"
-			" to a stream that already refers to another one!";
-		return true;
+		throw std::logic_error(
+			"QuickStreams - FATAL ERROR: "
+			"Attempted to register a failure sequence "
+			"to a stream that already refers to another one!"
+		);
 	default:
 		break;
 	}
-	return false;
 }
 
-bool quickstreams::Stream::cannotBranchFailureStream(
+void quickstreams::Stream::verifyBranchFailureStream(
 	const Reference& stream
 ) const {
-	// A stream cannot register itself
-	if(stream.data() == this) {
-		qWarning() << "CAUTION:"
-			" Attempted to register a stream to itself"
-			" as the initial stream of a failure sequence!";
-		return true;
-	}
+	verifyBranchAbortion();
 
-	if(cannotBranchAbortion()) return true;
+	// A stream cannot register itself
+	if(stream.data() == this) throw std::logic_error(
+		"QuickStreams - FATAL ERROR: "
+		"Attempted to register a stream to itself "
+		"as the initial stream of a failure sequence!"
+	);
 
 	// A stream cannot be captured by multiple individual streams
-	if(stream->_captionStatus != CaptionStatus::Free) {
-		qWarning() << "CAUTION:"
-			" Attempted to register a non-free stream"
-			" as the initial stream of a failure sequence!";
-		return true;
-	}
-
-	return false;
+	if(stream->_captionStatus != CaptionStatus::Free) throw std::logic_error(
+		"QuickStreams - FATAL ERROR: "
+		"Attempted to register a non-free stream "
+		"as the initial stream of a failure sequence!"
+	);
 }
 
-bool quickstreams::Stream::cannotBranchAbortion() const {
+void quickstreams::Stream::verifyBranchAbortion() const {
+	// Abortion operator cannot be used past the initialization phase
+	if(_state != State::Initializing) throw std::logic_error(
+		"QuickStreams - FATAL ERROR: "
+		"Attempted to use the abortion operator during the runtime!"
+	);
+
 	// If this stream already registered an abortion sequence
 	// it therefore cannot register yet another one
 	switch(_conFlowBranching) {
 	case ControlFlowBranching::Abortion:
 	case ControlFlowBranching::Both:
-		qWarning() << "CAUTION:"
-			" Attempted to register an abortion sequence"
-			" to a stream that already refers to another one!";
-		return true;
+		throw std::logic_error(
+			"QuickStreams - FATAL ERROR: "
+			"Attempted to register an abortion sequence "
+			"to a stream that already refers to another one!"
+		);
 	default:
 		break;
 	}
-	return false;
 }
 
-bool quickstreams::Stream::cannotBranchAbortionStream(
+void quickstreams::Stream::verifyBranchAbortionStream(
 	const Reference& stream
 ) const {
-	// A stream cannot register itself
-	if(stream.data() == this) {
-		qWarning() << "CAUTION:"
-			" Attempted to register a stream to itself"
-			" as the initial stream of an abortion sequence!";
-		return true;
-	}
+	verifyBranchAbortion();
 
-	if(cannotBranchAbortion()) return true;
+	// A stream cannot register itself
+	if(stream.data() == this) throw std::logic_error(
+		"QuickStreams - FATAL ERROR: "
+		"Attempted to register a stream to itself "
+		"as the initial stream of an abortion sequence!"
+	);
+
 
 	// A stream cannot be captured by multiple individual streams
-	if(stream->_captionStatus != CaptionStatus::Free) {
-		qWarning() << "CAUTION:"
-			" Attempted to register a non-free stream"
-			" as the initial stream of an abortion sequence!";
-		return true;
-	}
-
-	return false;
+	if(stream->_captionStatus != CaptionStatus::Free) throw std::logic_error(
+		"QuickStreams - FATAL ERROR: "
+		"Attempted to register a non-free stream "
+		"as the initial stream of an abortion sequence!"
+	);
 }
 
 void quickstreams::Stream::verifyFailureSequenceStream(Stream* stream) const {
-	if(this != stream) return;
-	qWarning() << "CAUTION:"
-		" Registered a sequence member stream as the initial stream"
-		" of a failure recovery sequence branching off it!";
+	if(this == stream) throw std::logic_error(
+		"QuickStreams - FATAL ERROR: "
+		"Registered a sequence member stream as the initial stream "
+		"of a failure recovery sequence branching off it!"
+	);
 }
 
 void quickstreams::Stream::verifyAbortionSequenceStream(Stream* stream) const {
-	if(this != stream) return;
-	qWarning() << "CAUTION:"
-		" Registered a sequence member stream as the initial stream"
-		" of an abortion recovery sequence branching off it!";
+	if(this == stream) throw std::logic_error(
+		"QuickStreams - FATAL ERROR: "
+		"Registered a sequence member stream as the initial stream "
+		"of an abortion recovery sequence branching off it!"
+	);
 }
 
 quickstreams::Stream::Reference quickstreams::Stream::adopt(
@@ -390,6 +402,13 @@ void quickstreams::Stream::connectSubsequent(Stream* stream) {
 		Qt::DirectConnection
 	);
 
+	// Initialize the stream and the following sequence recursively
+	connect(
+		this, &Stream::initializeSequences,
+		stream, &Stream::onInitialize,
+		Qt::DirectConnection
+	);
+
 	// Immediately kill the subsequent stream including the entire sequence
 	connect(
 		this, &Stream::eliminateSequence,
@@ -409,8 +428,11 @@ void quickstreams::Stream::connectSubsequent(Stream* stream) {
 }
 
 void quickstreams::Stream::die() {
+	// Initializing and awaiting streams become canceled,
+	// Active, Aborted and streams awaiting their delay become Dead
 	switch(_state) {
-	case State::New:
+	case State::Initializing:
+	case State::Awaiting:
 		_state = State::Canceled;
 		break;
 	case State::Active:
@@ -428,6 +450,13 @@ void quickstreams::Stream::die() {
 
 void quickstreams::Stream::initialize() {
 	if(_captionStatus != CaptionStatus::Free) return;
+
+	// Transit all subsequent streams as well as the abortion
+	// and failure streams into the Awaiting state locking them
+	// to prevent further manipulation through operators at runtime
+	initializeSequences();
+	_state = State::Awaiting;
+
 	awake(QVariant(), WakeCondition::Default);
 }
 
@@ -435,6 +464,13 @@ void quickstreams::Stream::registerFailureSequence(
 	Stream* failureStream
 ) {
 	verifyFailureSequenceStream(failureStream);
+
+	// Initialize the failure stream and the following sequence recursively
+	connect(
+		this, &Stream::initializeSequences,
+		failureStream, &Stream::onInitialize,
+		Qt::DirectConnection
+	);
 
 	// Asynchronously awake failure recovery stream if this stream fails
 	connect(
@@ -468,6 +504,13 @@ void quickstreams::Stream::registerAbortionSequence(
 	Stream* abortionStream
 ) {
 	verifyAbortionSequenceStream(abortionStream);
+
+	// Initialize the abortion stream and the following sequence recursively
+	connect(
+		this, &Stream::initializeSequences,
+		abortionStream, &Stream::onInitialize,
+		Qt::DirectConnection
+	);
 
 	// Asynchronously awake abortion recovery stream if this stream is aborted
 	connect(
@@ -541,7 +584,7 @@ void quickstreams::Stream::awake(
 		|| wakeCondition == WakeCondition::AbortNoDelay
 	)) {
 		_state = State::Aborted;
-	} else if(_state == State::New) {
+	} else if(_state == State::Awaiting) {
 		_state = State::Active;
 	}
 	_provider->activated();
@@ -593,6 +636,11 @@ void quickstreams::Stream::awake(
 	}
 }
 
+void quickstreams::Stream::onInitialize() {
+	_state = State::Awaiting;
+	initializeSequences();
+}
+
 void quickstreams::Stream::onEliminateSequence() {
 	die();
 	eliminateSequence();
@@ -630,7 +678,7 @@ quickstreams::Stream::Reference quickstreams::Stream::repeat(
 quickstreams::Stream::Reference quickstreams::Stream::attach(
 	const Executable::Reference& executable
 ) {
-	if(cannotAttach()) return _provider->reference(this);
+	verifyAttach();
 
 	auto reference(create(
 		executable, Type::Abortable, CaptionStatus::Attached
@@ -649,7 +697,7 @@ quickstreams::Stream::Reference quickstreams::Stream::attach(
 quickstreams::Stream::Reference quickstreams::Stream::attach(
 	const Reference& stream
 ) {
-	if(cannotAttachStream(stream)) return _provider->reference(this);
+	verifyAttachStream(stream);
 
 	_captured = Captured::Attached;
 	connectSubsequent(stream.data());
@@ -660,7 +708,7 @@ quickstreams::Stream::Reference quickstreams::Stream::attach(
 quickstreams::Stream::Reference quickstreams::Stream::bind(
 	const Executable::Reference& executable
 ) {
-	if(cannotBind()) return _provider->reference(this);
+	verifyBind();
 
 	auto reference(create(executable, Type::Abortable, CaptionStatus::Bound));
 	_captured = Captured::Bound;
@@ -677,7 +725,7 @@ quickstreams::Stream::Reference quickstreams::Stream::bind(
 quickstreams::Stream::Reference quickstreams::Stream::bind(
 	const Reference& stream
 ) {
-	if(cannotBindStream(stream)) return _provider->reference(this);
+	verifyBindStream(stream);
 
 	_captured = Captured::Bound;
 	connectSubsequent(stream.data());
@@ -698,7 +746,7 @@ quickstreams::Stream::Reference quickstreams::Stream::event(
 quickstreams::Stream::Reference quickstreams::Stream::failure(
 	const Executable::Reference& executable
 ) {
-	if(cannotBranchFailure()) return _provider->reference(this);
+	verifyBranchFailure();
 
 	auto reference(create(executable, Type::Atomic, CaptionStatus::Bound));
 	// When this stream failed - awake the failure stream
@@ -715,7 +763,7 @@ quickstreams::Stream::Reference quickstreams::Stream::failure(
 quickstreams::Stream::Reference quickstreams::Stream::failure(
 	const Reference& stream
 ) {
-	if(cannotBranchFailureStream(stream)) return _provider->reference(this);
+	verifyBranchFailureStream(stream);
 
 	// When this stream failed - awake the failure stream
 	registerFailureSequence(stream.data());
@@ -726,7 +774,7 @@ quickstreams::Stream::Reference quickstreams::Stream::failure(
 quickstreams::Stream::Reference quickstreams::Stream::abortion(
 	const Executable::Reference& executable
 ) {
-	if(cannotBranchAbortion()) return _provider->reference(this);
+	verifyBranchAbortion();
 
 	auto reference(create(executable, Type::Atomic, CaptionStatus::Bound));
 	// When this stream was aborted - awake the abortion stream
@@ -743,7 +791,7 @@ quickstreams::Stream::Reference quickstreams::Stream::abortion(
 quickstreams::Stream::Reference quickstreams::Stream::abortion(
 	const Reference& stream
 ) {
-	if(cannotBranchAbortionStream(stream)) return _provider->reference(this);
+	verifyBranchAbortionStream(stream);
 
 	// When this stream was aborted - awake the abortion stream
 	registerAbortionSequence(stream.data());
@@ -752,7 +800,8 @@ quickstreams::Stream::Reference quickstreams::Stream::abortion(
 }
 
 void quickstreams::Stream::abort() {
-	// Dead, canceled and already aborted streams cannot be aborted
+	// Dead, canceled, initializing and already aborted streams
+	// cannot be aborted
 	if(isInactive() || isAborted()) return;
 
 	// If this stream is delayed currently awaiting its awakening
@@ -769,6 +818,10 @@ void quickstreams::Stream::abort() {
 	}
 }
 
+quickstreams::Stream::State quickstreams::Stream::state() const {
+	return _state;
+}
+
 bool quickstreams::Stream::isAbortable() const {
 	return _type == Type::Abortable;
 }
@@ -779,11 +832,11 @@ bool quickstreams::Stream::isAborted() const {
 
 bool quickstreams::Stream::isInactive() const {
 	switch(_state) {
-	case State::Dead:
-	case State::Canceled:
-	case State::New:
-		return true;
-	default:
+	case State::Active:
+	case State::AwaitingDelay:
+	case State::Aborted:
 		return false;
+	default:
+		return true;
 	}
 }

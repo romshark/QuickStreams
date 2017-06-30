@@ -41,7 +41,9 @@ public:
 	typedef QSharedPointer<quickstreams::Stream> Reference;
 
 	enum class State : char {
-		New, Canceled,
+		Initializing,
+		Awaiting,
+		Canceled,
 		Active, AwaitingDelay, Aborted,
 		Dead
 	};
@@ -82,6 +84,8 @@ protected:
 	Captured _captured;
 	CaptionStatus _captionStatus;
 	Stream* _parent;
+	Reference _failure;
+	Reference _abortion;
 	QMultiHash<QString, Callback::Reference> _observedEvents;
 	StreamHandle _handle;
 
@@ -105,41 +109,37 @@ protected:
 		CaptionStatus captionStatus
 	) const;
 
-	// Return true if the attach attempt was faulty
+	// Throws an exception if the attach attempt was faulty
 	// for any of the following reasons:
 	// 1. this stream already captured another stream (no sequence splitting)
 	// 2. attempted to attach a non-free stream
 	// 3. attempted to attach a stream to itself
-	bool cannotAttach() const;
-	bool cannotAttachStream(const Reference& stream) const;
-	bool cannotBind() const;
-	bool cannotBindStream(const Reference& stream) const;
+	void verifyAttach() const;
+	void verifyAttachStream(const Reference& stream) const;
+	void verifyBind() const;
+	void verifyBindStream(const Reference& stream) const;
 
-	// Return true if this stream already registered a failure branch
-	// to prevent multiple failure branches and invokations
-	// of a stream from multiple different sequences
-
-	// Return true if the attempt to register a failure sequence was faulty
-	// for any of the following reasons:
+	// Throws an exception if the attempt to register a failure sequence
+	// was faulty for any of the following reasons:
 	// 1. this stream already registered another failure sequence
 	// 2. attempted to register a non-free stream
 	// 3. attempted to register a stream to itself
-	bool cannotBranchFailure() const;
-	bool cannotBranchFailureStream(const Reference& stream) const;
+	void verifyBranchFailure() const;
+	void verifyBranchFailureStream(const Reference& stream) const;
 
-	// Return true if the attempt to register an abortion sequence was faulty
-	// for any of the following reasons:
+	// Throws an exception if the attempt to register an abortion sequence
+	// was faulty for any of the following reasons:
 	// 1. this stream already registered another abortion sequence
 	// 2. attempted to register a non-free stream
 	// 3. attempted to register a stream to itself
-	bool cannotBranchAbortion() const;
-	bool cannotBranchAbortionStream(const Reference& stream) const;
+	void verifyBranchAbortion() const;
+	void verifyBranchAbortionStream(const Reference& stream) const;
 
-	// Throws a warning if the initial stream of a failure sequence
+	// Throws an exception if the initial stream of a failure sequence
 	// is a member of the sequence to branch off in case of failure
 	void verifyFailureSequenceStream(Stream* stream) const;
 
-	// Throws a warning if the initial stream of an abortion sequence
+	// Throws an exception if the initial stream of an abortion sequence
 	// is a member of the sequence to branch off in case of abortion
 	void verifyAbortionSequenceStream(Stream* stream) const;
 
@@ -176,6 +176,11 @@ protected slots:
 			quickstreams::Stream::WakeCondition::Default
 	);
 
+	// Handles sequence initialization signals,
+	// must transit this stream into Awaiting state
+	// and reemit initializeSequences signal to subsequent streams
+	void onInitialize();
+
 	// Handles sequence eliminatation signal, must cancel this stream
 	// and recursively eliminate all subsequent streams
 	void onEliminateSequence();
@@ -202,6 +207,11 @@ signals:
 
 	// Eliminates the declared abortion sequence recursively
 	void eliminateAbortionSequence();
+
+	// The Initialization signal is fired when the initial free stream
+	// is scheduled for execution. It makes subsequent streams transit into
+	// the awaiting state to prevent control flow manipulation at runtime
+	void initializeSequences();
 
 public:
 	// delay is a stream operator, it delays the awakening of the stream
@@ -265,6 +275,9 @@ public:
 	// This method does nothing if this stream is atomic.
 	void abort();
 
+	// Returns the state the stream is currently in
+	State state() const;
+
 	// Returns false if this stream is atomic, otherwise returns true.
 	bool isAbortable() const;
 
@@ -279,3 +292,4 @@ public:
 } // quickstreams
 
 Q_DECLARE_METATYPE(quickstreams::Stream::Type)
+Q_DECLARE_METATYPE(quickstreams::Stream::State)
