@@ -69,6 +69,7 @@ void QuickStreamsTest::memory() {
 	secondStream.clear();
 	thirdStream.clear();
 	fourthStream.clear();
+	failureStream.clear();
 
 	// Await next event loop cycle
 	Trigger cleanup;
