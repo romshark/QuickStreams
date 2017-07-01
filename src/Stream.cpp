@@ -446,7 +446,8 @@ void quickstreams::Stream::initialize() {
 void quickstreams::Stream::registerFailureSequence(Stream* initialStream) {
 	verifyFailSeqStreamNotMember(initialStream);
 
-	// If a failure sequence is already registered then override it
+	// Disconnect and eliminate (override) the registered failure sequence
+	disconnect(this, &Stream::failed, 0, 0);
 	eliminateFailureSequence();
 
 	// Initialize the failure sequence and the following sequence recursively
@@ -475,7 +476,8 @@ void quickstreams::Stream::registerFailureSequence(Stream* initialStream) {
 void quickstreams::Stream::registerAbortionSequence(Stream* initialStream) {
 	verifyAbortSeqStreamNotMember(initialStream);
 
-	// If an abortion sequence is already registered then override it
+	// Disconnect and eliminate (override) the registered abortion sequence
+	disconnect(this, &Stream::aborted, 0, 0);
 	eliminateAbortionSequence();
 
 	// Initialize the abortion sequence and the following sequence recursively
