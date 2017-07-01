@@ -32,7 +32,6 @@ quickstreams::Stream::Stream(
 	_provider(provider),
 	_type(type),
 	_state(State::Initializing),
-	_conFlowBranching(ControlFlowBranching::None),
 	_captured(Captured::None),
 	_captionStatus(captionStatus),
 	_parent(nullptr),
@@ -158,35 +157,19 @@ void quickstreams::Stream::verifyBindStream(const Reference& stream) const {
 	);
 }
 
-void quickstreams::Stream::verifyBranchFailure() const {
+void quickstreams::Stream::verifyFailureSequence() const {
 	// Failure operator cannot be used past the initialization phase
 	if(_state != State::Initializing) throw std::logic_error(
 		"QuickStreams - FATAL ERROR: "
 		"Attempted to use the failure operator during the runtime!"
 	);
-
-	// If this stream already registered a failure sequence
-	// it therefore cannot register yet another one
-	switch(_conFlowBranching) {
-	case ControlFlowBranching::Failure:
-	case ControlFlowBranching::Both:
-		throw std::logic_error(
-			"QuickStreams - FATAL ERROR: "
-			"Attempted to register a failure sequence "
-			"to a stream that already refers to another one!"
-		);
-	default:
-		break;
-	}
 }
 
-void quickstreams::Stream::verifyBranchFailureStream(
-	const Reference& stream
-) const {
-	verifyBranchAbortion();
+void quickstreams::Stream::verifyFailureSequenceStream(Stream* stream) const {
+	verifyFailureSequence();
 
 	// A stream cannot register itself
-	if(stream.data() == this) throw std::logic_error(
+	if(stream == this) throw std::logic_error(
 		"QuickStreams - FATAL ERROR: "
 		"Attempted to register a stream to itself "
 		"as the initial stream of a failure sequence!"
@@ -200,40 +183,23 @@ void quickstreams::Stream::verifyBranchFailureStream(
 	);
 }
 
-void quickstreams::Stream::verifyBranchAbortion() const {
+void quickstreams::Stream::verifyAbortionSequence() const {
 	// Abortion operator cannot be used past the initialization phase
 	if(_state != State::Initializing) throw std::logic_error(
 		"QuickStreams - FATAL ERROR: "
 		"Attempted to use the abortion operator during the runtime!"
 	);
-
-	// If this stream already registered an abortion sequence
-	// it therefore cannot register yet another one
-	switch(_conFlowBranching) {
-	case ControlFlowBranching::Abortion:
-	case ControlFlowBranching::Both:
-		throw std::logic_error(
-			"QuickStreams - FATAL ERROR: "
-			"Attempted to register an abortion sequence "
-			"to a stream that already refers to another one!"
-		);
-	default:
-		break;
-	}
 }
 
-void quickstreams::Stream::verifyBranchAbortionStream(
-	const Reference& stream
-) const {
-	verifyBranchAbortion();
+void quickstreams::Stream::verifyAbortionSequenceStream(Stream* stream) const {
+	verifyAbortionSequence();
 
 	// A stream cannot register itself
-	if(stream.data() == this) throw std::logic_error(
+	if(stream == this) throw std::logic_error(
 		"QuickStreams - FATAL ERROR: "
 		"Attempted to register a stream to itself "
 		"as the initial stream of an abortion sequence!"
 	);
-
 
 	// A stream cannot be captured by multiple individual streams
 	if(stream->_captionStatus != CaptionStatus::Free) throw std::logic_error(
@@ -243,7 +209,9 @@ void quickstreams::Stream::verifyBranchAbortionStream(
 	);
 }
 
-void quickstreams::Stream::verifyFailureSequenceStream(Stream* stream) const {
+void quickstreams::Stream::verifyFailSeqStreamNotMember(
+	Stream* stream
+) const {
 	if(this == stream) throw std::logic_error(
 		"QuickStreams - FATAL ERROR: "
 		"Registered a sequence member stream as the initial stream "
@@ -251,7 +219,9 @@ void quickstreams::Stream::verifyFailureSequenceStream(Stream* stream) const {
 	);
 }
 
-void quickstreams::Stream::verifyAbortionSequenceStream(Stream* stream) const {
+void quickstreams::Stream::verifyAbortSeqStreamNotMember(
+	Stream* stream
+) const {
 	if(this == stream) throw std::logic_error(
 		"QuickStreams - FATAL ERROR: "
 		"Registered a sequence member stream as the initial stream "
@@ -389,16 +359,27 @@ void quickstreams::Stream::setSuperordinateStream(Stream *stream) {
 }
 
 void quickstreams::Stream::connectSubsequent(Stream* stream) {
-	// Receive failure and abortion stream propagation signals
-	// during the declaration
+	// Receive failure and abortion sequence propagation signals
+	// during the declaration in both directions (up and down)
 	connect(
-		stream, &Stream::propagateFailureStream,
-		this, &Stream::registerFailureSequence,
+		this, &Stream::propagateFailSeqUp,
+		stream, &Stream::onPropagateFailSeqUp,
 		Qt::DirectConnection
 	);
 	connect(
-		stream, &Stream::propagateAbortionStream,
-		this, &Stream::registerAbortionSequence,
+		stream, &Stream::propagateFailSeqDown,
+		this, &Stream::onPropagateFailSeqDown,
+		Qt::DirectConnection
+	);
+
+	connect(
+		this, &Stream::propagateAbortSeqUp,
+		stream, &Stream::onPropagateAbortSeqUp,
+		Qt::DirectConnection
+	);
+	connect(
+		stream, &Stream::propagateAbortSeqDown,
+		this, &Stream::onPropagateAbortSeqDown,
 		Qt::DirectConnection
 	);
 
@@ -431,6 +412,8 @@ void quickstreams::Stream::die() {
 	// Initializing and awaiting streams become canceled,
 	// Active, Aborted and streams awaiting their delay become Dead
 	switch(_state) {
+	case State::Dead:
+		return;
 	case State::Initializing:
 	case State::Awaiting:
 		_state = State::Canceled;
@@ -460,84 +443,82 @@ void quickstreams::Stream::initialize() {
 	awake(QVariant(), WakeCondition::Default);
 }
 
-void quickstreams::Stream::registerFailureSequence(
-	Stream* failureStream
-) {
-	verifyFailureSequenceStream(failureStream);
+void quickstreams::Stream::registerFailureSequence(Stream* initialStream) {
+	verifyFailSeqStreamNotMember(initialStream);
 
-	// Initialize the failure stream and the following sequence recursively
+	// If a failure sequence is already registered then override it
+	eliminateFailureSequence();
+
+	// Initialize the failure sequence and the following sequence recursively
 	connect(
 		this, &Stream::initializeSequences,
-		failureStream, &Stream::onInitialize,
+		initialStream, &Stream::onInitialize,
 		Qt::DirectConnection
 	);
 
-	// Asynchronously awake failure recovery stream if this stream fails
+	// Asynchronously awake failure recovery sequence
+	// if this stream fails
 	connect(
 		this, &Stream::failed,
-		failureStream, &Stream::awake,
+		initialStream, &Stream::awake,
 		Qt::QueuedConnection
 	);
 
 	// Immediately kill the failure sequence on signal
 	connect(
 		this, &Stream::eliminateFailureSequence,
-		failureStream, &Stream::onEliminateSequence,
+		initialStream, &Stream::onEliminateSequence,
 		Qt::DirectConnection
 	);
-
-	// Register control flow branching to either both (failure & abortion)
-	// or failure sequence only. At this point control flow branching
-	// can neither be both nor failure only since this is prevented
-	// in the failure operator
-	if(_conFlowBranching == ControlFlowBranching::Abortion) {
-		_conFlowBranching = ControlFlowBranching::Both;
-	} else {
-		_conFlowBranching = ControlFlowBranching::Failure;
-	}
-
-	// Propagate failure stream to superordinate streams
-	propagateFailureStream(failureStream);
 }
 
-void quickstreams::Stream::registerAbortionSequence(
-	Stream* abortionStream
-) {
-	verifyAbortionSequenceStream(abortionStream);
+void quickstreams::Stream::registerAbortionSequence(Stream* initialStream) {
+	verifyAbortSeqStreamNotMember(initialStream);
 
-	// Initialize the abortion stream and the following sequence recursively
+	// If an abortion sequence is already registered then override it
+	eliminateAbortionSequence();
+
+	// Initialize the abortion sequence and the following sequence recursively
 	connect(
 		this, &Stream::initializeSequences,
-		abortionStream, &Stream::onInitialize,
+		initialStream, &Stream::onInitialize,
 		Qt::DirectConnection
 	);
 
-	// Asynchronously awake abortion recovery stream if this stream is aborted
+	// Asynchronously awake abortion recovery sequence
+	// if this stream is aborted
 	connect(
 		this, &Stream::aborted,
-		abortionStream, &Stream::awake,
+		initialStream, &Stream::awake,
 		Qt::QueuedConnection
 	);
 
 	// Immediately kill the abortion sequence on signal
 	connect(
 		this, &Stream::eliminateAbortionSequence,
-		abortionStream, &Stream::onEliminateSequence,
+		initialStream, &Stream::onEliminateSequence,
 		Qt::DirectConnection
 	);
+}
 
-	// Register control flow branching to either both (failure & abortion)
-	// or abortion sequence only. At this point control flow branching
-	// can neither be both nor abortion only since this is prevented
-	// in the abortion operator
-	if(_conFlowBranching == ControlFlowBranching::Failure) {
-		_conFlowBranching = ControlFlowBranching::Both;
-	} else {
-		_conFlowBranching = ControlFlowBranching::Abortion;
-	}
+void quickstreams::Stream::onPropagateFailSeqUp(Stream* initialStream) {
+	registerFailureSequence(initialStream);
+	propagateFailSeqUp(initialStream);
+}
 
-	// Propagate abortion stream to superordinate streams
-	propagateAbortionStream(abortionStream);
+void quickstreams::Stream::onPropagateFailSeqDown(Stream* initialStream) {
+	registerFailureSequence(initialStream);
+	propagateFailSeqDown(initialStream);
+}
+
+void quickstreams::Stream::onPropagateAbortSeqUp(Stream* initialStream) {
+	registerAbortionSequence(initialStream);
+	propagateAbortSeqUp(initialStream);
+}
+
+void quickstreams::Stream::onPropagateAbortSeqDown(Stream* initialStream) {
+	registerAbortionSequence(initialStream);
+	propagateAbortSeqDown(initialStream);
 }
 
 void quickstreams::Stream::awake(
@@ -746,11 +727,12 @@ quickstreams::Stream::Reference quickstreams::Stream::event(
 quickstreams::Stream::Reference quickstreams::Stream::failure(
 	const Executable::Reference& executable
 ) {
-	verifyBranchFailure();
+	verifyFailureSequence();
 
 	auto reference(create(executable, Type::Atomic, CaptionStatus::Bound));
-	// When this stream failed - awake the failure stream
 	registerFailureSequence(reference.data());
+	propagateFailSeqDown(reference.data());
+	propagateFailSeqUp(reference.data());
 	return reference;
 }
 
@@ -763,10 +745,11 @@ quickstreams::Stream::Reference quickstreams::Stream::failure(
 quickstreams::Stream::Reference quickstreams::Stream::failure(
 	const Reference& stream
 ) {
-	verifyBranchFailureStream(stream);
+	verifyFailureSequenceStream(stream.data());
 
-	// When this stream failed - awake the failure stream
 	registerFailureSequence(stream.data());
+	propagateFailSeqDown(stream.data());
+	propagateFailSeqUp(stream.data());
 	stream->_captionStatus = CaptionStatus::Bound;
 	return stream;
 }
@@ -774,11 +757,13 @@ quickstreams::Stream::Reference quickstreams::Stream::failure(
 quickstreams::Stream::Reference quickstreams::Stream::abortion(
 	const Executable::Reference& executable
 ) {
-	verifyBranchAbortion();
+	verifyAbortionSequence();
 
 	auto reference(create(executable, Type::Atomic, CaptionStatus::Bound));
 	// When this stream was aborted - awake the abortion stream
 	registerAbortionSequence(reference.data());
+	propagateAbortSeqDown(reference.data());
+	propagateAbortSeqUp(reference.data());
 	return reference;
 }
 
@@ -791,10 +776,12 @@ quickstreams::Stream::Reference quickstreams::Stream::abortion(
 quickstreams::Stream::Reference quickstreams::Stream::abortion(
 	const Reference& stream
 ) {
-	verifyBranchAbortionStream(stream);
+	verifyAbortionSequenceStream(stream.data());
 
 	// When this stream was aborted - awake the abortion stream
 	registerAbortionSequence(stream.data());
+	propagateAbortSeqDown(stream.data());
+	propagateAbortSeqUp(stream.data());
 	stream->_captionStatus = CaptionStatus::Bound;
 	return stream;
 }

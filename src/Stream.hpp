@@ -66,26 +66,15 @@ public:
 	enum class CaptionStatus : char {Free, Attached, Bound};
 	Q_ENUM(CaptionStatus)
 
-	enum class ControlFlowBranching : char {
-		None,
-		Failure,
-		Abortion,
-		Both
-	};
-	Q_ENUM(ControlFlowBranching)
-
 	static Executable::Reference Wrap(LambdaWrapper::Function function);
 
 protected:
 	ProviderInterface* _provider;
 	Type _type;
 	State _state;
-	ControlFlowBranching _conFlowBranching;
 	Captured _captured;
 	CaptionStatus _captionStatus;
 	Stream* _parent;
-	Reference _failure;
-	Reference _abortion;
 	QMultiHash<QString, Callback::Reference> _observedEvents;
 	StreamHandle _handle;
 
@@ -124,24 +113,34 @@ protected:
 	// 1. this stream already registered another failure sequence
 	// 2. attempted to register a non-free stream
 	// 3. attempted to register a stream to itself
-	void verifyBranchFailure() const;
-	void verifyBranchFailureStream(const Reference& stream) const;
+	void verifyFailureSequence() const;
+	void verifyFailureSequenceStream(Stream* stream) const;
 
 	// Throws an exception if the attempt to register an abortion sequence
 	// was faulty for any of the following reasons:
 	// 1. this stream already registered another abortion sequence
 	// 2. attempted to register a non-free stream
 	// 3. attempted to register a stream to itself
-	void verifyBranchAbortion() const;
-	void verifyBranchAbortionStream(const Reference& stream) const;
+	void verifyAbortionSequence() const;
+	void verifyAbortionSequenceStream(Stream* stream) const;
 
 	// Throws an exception if the initial stream of a failure sequence
 	// is a member of the sequence to branch off in case of failure
-	void verifyFailureSequenceStream(Stream* stream) const;
+	void verifyFailSeqStreamNotMember(Stream* stream) const;
 
 	// Throws an exception if the initial stream of an abortion sequence
 	// is a member of the sequence to branch off in case of abortion
-	void verifyAbortionSequenceStream(Stream* stream) const;
+	void verifyAbortSeqStreamNotMember(Stream* stream) const;
+
+	// Registers the first stream of the sequence to awake
+	// when this stream fails.
+	// Recursively propagate it to the entire sequence
+	void registerFailureSequence(Stream* failureStream);
+
+	// Registers the first stream of the sequence to awake
+	// when this stream is closed after it's aborted.
+	// Recursively propagate it to the entire sequence
+	void registerAbortionSequence(Stream* abortionStream);
 
 	Reference adopt(Reference another);
 	void emitEvent(const QString& name, const QVariant& data) const;
@@ -158,15 +157,11 @@ protected slots:
 	// it will be awoken right away
 	void initialize();
 
-	// Registers the first stream of the sequence to awake
-	// when this stream fails.
-	// Recursively propagate it to the entire sequence
-	void registerFailureSequence(Stream* failureStream);
+	void onPropagateFailSeqUp(Stream* initialStream);
+	void onPropagateFailSeqDown(Stream* initialStream);
 
-	// Registers the first stream of the sequence to awake
-	// when this stream is closed after it's aborted.
-	// Recursively propagate it to the entire sequence
-	void registerAbortionSequence(Stream* abortionStream);
+	void onPropagateAbortSeqUp(Stream* initialStream);
+	void onPropagateAbortSeqDown(Stream* initialStream);
 
 	// Awakes this stream, when the preceding stream either closes
 	// or redirects control flow to this stream after a failure or an abortion
@@ -193,8 +188,12 @@ signals:
 	void retryIteration(QVariant data, WakeCondition wakeCondition);
 	void repeatIteration(QVariant data, WakeCondition wakeCondition);
 	void abortSubordinate();
-	void propagateFailureStream(Stream* failureStream);
-	void propagateAbortionStream(Stream* abortionStream);
+
+	void propagateFailSeqUp(Stream* initialStream);
+	void propagateFailSeqDown(Stream* initialStream);
+
+	void propagateAbortSeqUp(Stream* initialStream);
+	void propagateAbortSeqDown(Stream* initialStream);
 
 	// Eliminates all subordinate streams
 	void eliminateSubordinate();
