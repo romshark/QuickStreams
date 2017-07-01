@@ -17,7 +17,8 @@ SOURCES +=  \
     tests/failure_recoverySequence.cpp \
     tests/attach_sequence.cpp \
     tests/memory.cpp \
-    tests/sequenceInitialization.cpp
+    tests/sequenceInitialization.cpp \
+    tests/failure_override.cpp
 
 HEADERS += \
     Trigger.hpp \

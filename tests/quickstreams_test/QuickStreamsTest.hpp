@@ -20,6 +20,7 @@ private slots:
 	// Failure operator tests
 	void failure_noFail();
 	void failure_sequenceTail();
+	void failure_override();
 	void failure_recoverySequence();
 	void failure_data_stdRuntimeError();
 	void failure_data_string();
