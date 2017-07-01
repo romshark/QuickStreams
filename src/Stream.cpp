@@ -35,6 +35,8 @@ quickstreams::Stream::Stream(
 	_captured(Captured::None),
 	_captionStatus(captionStatus),
 	_parent(nullptr),
+	_failure(nullptr),
+	_abortion(nullptr),
 	_handle(
 		// Called when stream is requested to emit an event
 		[this](const QString& name, const QVariant& data) {
@@ -406,6 +408,10 @@ void quickstreams::Stream::connectSubsequent(Stream* stream) {
 
 	// Automatically inherit parent stream
 	if(_parent) stream->setSuperordinateStream(_parent);
+
+	// Automatically inherit failure and abortion sequences
+	if(_failure) stream->connectFailureSequence(_failure);
+	if(_abortion) stream->connectAbortionSequence(_abortion);
 }
 
 void quickstreams::Stream::die() {
@@ -450,6 +456,12 @@ void quickstreams::Stream::registerFailureSequence(Stream* initialStream) {
 	disconnect(this, &Stream::failed, 0, 0);
 	eliminateFailureSequence();
 
+	connectFailureSequence(initialStream);
+}
+
+void quickstreams::Stream::connectFailureSequence(Stream* initialStream) {
+	_failure = initialStream;
+
 	// Initialize the failure sequence and the following sequence recursively
 	connect(
 		this, &Stream::initializeSequences,
@@ -479,6 +491,12 @@ void quickstreams::Stream::registerAbortionSequence(Stream* initialStream) {
 	// Disconnect and eliminate (override) the registered abortion sequence
 	disconnect(this, &Stream::aborted, 0, 0);
 	eliminateAbortionSequence();
+
+	connectAbortionSequence(initialStream);
+}
+
+void quickstreams::Stream::connectAbortionSequence(Stream* initialStream) {
+	_abortion = initialStream;
 
 	// Initialize the abortion sequence and the following sequence recursively
 	connect(

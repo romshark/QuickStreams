@@ -75,6 +75,8 @@ protected:
 	Captured _captured;
 	CaptionStatus _captionStatus;
 	Stream* _parent;
+	Stream* _failure;
+	Stream* _abortion;
 	QMultiHash<QString, Callback::Reference> _observedEvents;
 	StreamHandle _handle;
 
@@ -136,11 +138,13 @@ protected:
 	// when this stream fails.
 	// Recursively propagate it to the entire sequence
 	void registerFailureSequence(Stream* failureStream);
+	void connectFailureSequence(Stream* failureStream);
 
 	// Registers the first stream of the sequence to awake
 	// when this stream is closed after it's aborted.
 	// Recursively propagate it to the entire sequence
 	void registerAbortionSequence(Stream* abortionStream);
+	void connectAbortionSequence(Stream* abortionStream);
 
 	Reference adopt(Reference another);
 	void emitEvent(const QString& name, const QVariant& data) const;
