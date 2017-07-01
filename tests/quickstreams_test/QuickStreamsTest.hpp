@@ -12,7 +12,6 @@ protected:
 
 private slots:
 	void init();
-	void cleanup();
 
 	// Attach operator tests
 	void attach();
