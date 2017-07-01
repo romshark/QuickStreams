@@ -18,7 +18,8 @@ SOURCES +=  \
     tests/attach_sequence.cpp \
     tests/memory.cpp \
     tests/sequenceInitialization.cpp \
-    tests/failure_override.cpp
+    tests/failure_override.cpp \
+    tests/failure_sequenceHead.cpp
 
 HEADERS += \
     Trigger.hpp \
