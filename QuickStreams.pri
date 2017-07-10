@@ -26,9 +26,9 @@ HEADERS += \
 	$$PWD/src/Retryer.hpp \
 	$$PWD/src/LambdaRetryer.hpp \
 	$$PWD/src/TypeRetryer.hpp \
-	$$PWD/src/JsRetryer.hpp \
 	$$PWD/src/Error.hpp \
-	$$PWD/src/JsTypeRetryer.hpp
+	$$PWD/src/JsTypeRetryer.hpp \
+	$$PWD/src/JsConditionRetryer.hpp
 
 SOURCES += \
 	$$PWD/src/Stream.cpp \
@@ -51,7 +51,8 @@ SOURCES += \
 	$$PWD/src/LambdaRetryer.cpp \
 	$$PWD/src/TypeRetryer.cpp \
 	$$PWD/src/Error.cpp \
-	$$PWD/src/JsTypeRetryer.cpp
+	$$PWD/src/JsTypeRetryer.cpp \
+	$$PWD/src/JsConditionRetryer.cpp
 
 DISTFILES += \
     $$PWD/README.md

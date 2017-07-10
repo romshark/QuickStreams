@@ -6,6 +6,7 @@
 #include "JsSyncExecutable.hpp"
 #include "JsCallback.hpp"
 #include "JsRepeater.hpp"
+#include "JsConditionRetryer.hpp"
 #include "JsTypeRetryer.hpp"
 #include "ProviderInterface.hpp"
 #include <QJSValue>
@@ -108,15 +109,15 @@ quickstreams::qml::QmlStream* quickstreams::qml::QmlStream::retry(
 	if(maxTrials.isNumber()) trials = maxTrials.toInt();
 
 	if(condition.isCallable()) {
-		//TODO: implement condition-callback retryer
-		//_reference->retry(errorSamples, trials);
+		_reference->retry(Retryer::Reference(
+			new JsConditionRetryer(_engine, condition, trials)
+		));
 	} else if(
 		condition.isNumber() || condition.isString() || condition.isArray()
 	) {
-		Retryer::Reference retryer(
+		_reference->retry(Retryer::Reference(
 			new JsTypeRetryer(condition.toVariant(), trials)
-		);
-		_reference->retry(retryer);
+		));
 	} else {
 		_reference->retry({condition.toInt()}, trials);
 	}
