@@ -9,6 +9,8 @@
 #include "Repeater.hpp"
 #include "LambdaRepeater.hpp"
 #include "Retryer.hpp"
+#include "TypeRetryer.hpp"
+#include "LambdaRetryer.hpp"
 #include "Callback.hpp"
 #include <QObject>
 #include <QJSValue>
@@ -226,7 +228,15 @@ public:
 
 	// retry is a stream operator, it repeats resurrecting the current stream
 	// if either of the given error samples match the catched error.
-	Reference retry(const QVariantList& samples, qint32 maxTrials = -1);
+	Reference retry(Retryer::Reference newRetryer);
+	Reference retry(
+		const TypeRetryer::TypeList& errorTypes,
+		qint32 maxTrials = -1
+	);
+	Reference retry(
+		LambdaRetryer::Function function,
+		qint32 maxTrials = -1
+	);
 
 	// repeat is a stream operator, it repeats resurrecting the current stream
 	// if the given condition returns true.

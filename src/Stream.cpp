@@ -6,6 +6,8 @@
 #include "LambdaWrapper.hpp"
 #include "Repeater.hpp"
 #include "LambdaRepeater.hpp"
+#include "TypeRetryer.hpp"
+#include "LambdaRetryer.hpp"
 #include <exception>
 #include <QJSValue>
 #include <QList>
@@ -322,8 +324,7 @@ void quickstreams::Stream::emitFailed(
 	if(isInactive()) return;
 
 	// Check whether retrial is desired
-	if(_retryer != nullptr) {
-		_retryer->incrementTrialCounter();
+	if(!_retryer.isNull()) {
 		if(_retryer->verify(data)) {
 			// Retry asynchronously
 			retryIteration(data, wakeCondition);
@@ -655,11 +656,26 @@ quickstreams::Stream::Reference quickstreams::Stream::delay(qint32 duration) {
 }
 
 quickstreams::Stream::Reference quickstreams::Stream::retry(
-	const QVariantList& samples,
+	Retryer::Reference newRetryer
+) {
+	_retryer.swap(newRetryer);
+	return _provider->reference(this);
+}
+
+quickstreams::Stream::Reference quickstreams::Stream::retry(
+	const TypeRetryer::TypeList& errorTypes,
 	qint32 maxTrials
 ) {
-	_retryer.reset(new Retryer(samples, maxTrials));
-	return _provider->reference(this);
+	Retryer::Reference retryer(new TypeRetryer(errorTypes, maxTrials));
+	return retry(retryer);
+}
+
+quickstreams::Stream::Reference quickstreams::Stream::retry(
+	LambdaRetryer::Function function,
+	qint32 maxTrials
+) {
+	Retryer::Reference retryer(new LambdaRetryer(function, maxTrials));
+	return retry(retryer);
 }
 
 quickstreams::Stream::Reference quickstreams::Stream::repeat(

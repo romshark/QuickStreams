@@ -14,7 +14,6 @@ HEADERS += \
 	$$PWD/src/JsExecutable.hpp \
 	$$PWD/src/JsSyncExecutable.hpp \
 	$$PWD/src/QmlStream.hpp \
-	$$PWD/src/Retryer.hpp \
 	$$PWD/src/LambdaRepeater.hpp \
 	$$PWD/src/JsRepeater.hpp \
 	$$PWD/src/Callback.hpp \
@@ -23,7 +22,13 @@ HEADERS += \
 	$$PWD/src/Executable.hpp \
 	$$PWD/src/QmlStreamHandle.hpp \
 	$$PWD/src/Repeater.hpp \
-	$$PWD/src/ProviderInterface.hpp
+	$$PWD/src/ProviderInterface.hpp \
+	$$PWD/src/Retryer.hpp \
+	$$PWD/src/LambdaRetryer.hpp \
+	$$PWD/src/TypeRetryer.hpp \
+	$$PWD/src/JsRetryer.hpp \
+	$$PWD/src/Error.hpp \
+	$$PWD/src/JsTypeRetryer.hpp
 
 SOURCES += \
 	$$PWD/src/Stream.cpp \
@@ -36,13 +41,17 @@ SOURCES += \
 	$$PWD/src/JsExecutable.cpp \
 	$$PWD/src/JsSyncExecutable.cpp \
 	$$PWD/src/QmlStream.cpp \
-	$$PWD/src/Retryer.cpp \
 	$$PWD/src/LambdaRepeater.cpp \
 	$$PWD/src/JsRepeater.cpp \
 	$$PWD/src/JsCallback.cpp \
 	$$PWD/src/LambdaCallback.cpp \
 	$$PWD/src/Executable.cpp \
-	$$PWD/src/QmlStreamHandle.cpp
+	$$PWD/src/QmlStreamHandle.cpp \
+	$$PWD/src/Retryer.cpp \
+	$$PWD/src/LambdaRetryer.cpp \
+	$$PWD/src/TypeRetryer.cpp \
+	$$PWD/src/Error.cpp \
+	$$PWD/src/JsTypeRetryer.cpp
 
 DISTFILES += \
     $$PWD/README.md

@@ -6,11 +6,13 @@
 #include "JsSyncExecutable.hpp"
 #include "JsCallback.hpp"
 #include "JsRepeater.hpp"
+#include "JsTypeRetryer.hpp"
 #include "ProviderInterface.hpp"
 #include <QJSValue>
 #include <QString>
 #include <QVariant>
 #include <QtQml>
+#include <QCoreApplication>
 #include <QMetaObject>
 #include <QTimer>
 #include <QSharedPointer>
@@ -99,20 +101,25 @@ quickstreams::qml::QmlStream* quickstreams::qml::QmlStream::delay(
 }
 
 quickstreams::qml::QmlStream* quickstreams::qml::QmlStream::retry(
-	const QVariant& samples,
+	const QJSValue& condition,
 	const QJSValue& maxTrials
 ) {
-	QVariantList errorSamples;
-	if(samples.canConvert<QVariantList>()) {
-		errorSamples = samples.value<QVariantList>();
-	} else {
-		errorSamples.append(samples);
-	}
 	int trials(-1);
-	if(maxTrials.isNumber()) {
-		trials = maxTrials.toInt();
+	if(maxTrials.isNumber()) trials = maxTrials.toInt();
+
+	if(condition.isCallable()) {
+		//TODO: implement condition-callback retryer
+		//_reference->retry(errorSamples, trials);
+	} else if(
+		condition.isNumber() || condition.isString() || condition.isArray()
+	) {
+		Retryer::Reference retryer(
+			new JsTypeRetryer(condition.toVariant(), trials)
+		);
+		_reference->retry(retryer);
+	} else {
+		_reference->retry({condition.toInt()}, trials);
 	}
-	_reference->retry(errorSamples, trials);
 	return this;
 }
 
@@ -216,8 +223,8 @@ bool quickstreams::qml::QmlStream::isAborted() const {
 	return _reference->isAborted();
 }
 
-static void registerQmlTypes() {
+static void __register_quickstreams_qml_stream() {
     qmlRegisterInterface<quickstreams::qml::QmlStream>("QmlStream");
 }
 
-Q_COREAPP_STARTUP_FUNCTION(registerQmlTypes)
+Q_COREAPP_STARTUP_FUNCTION(__register_quickstreams_qml_stream)

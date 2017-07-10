@@ -72,7 +72,7 @@ public:
 	// retry is a stream operator, it repeats resurrecting the current stream
 	// if either of the given error samples match the catched error.
 	Q_INVOKABLE QmlStream* retry(
-		const QVariant& samples,
+		const QJSValue& condition,
 		const QJSValue& maxTrials = QJSValue()
 	);
 

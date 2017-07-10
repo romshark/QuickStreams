@@ -8,3 +8,4 @@
 #include "LambdaExecutable.hpp"
 #include "JsCallback.hpp"
 #include "LambdaCallback.hpp"
+#include "Error.hpp"

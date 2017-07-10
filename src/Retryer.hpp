@@ -11,17 +11,17 @@ public:
 	typedef QSharedPointer<Retryer> Reference;
 
 protected:
-	QVariantList _errorSamples;
 	qint32 _maxTrials;
 	qint32 _currentTrial;
 
 public:
-	Retryer(const QVariantList& _errorSamples, qint32 maxTrials);
+	Retryer(qint32 maxTrials);
 	void reset();
-	void incrementTrialCounter();
 	bool isInfinite() const;
-	bool verifyErrorListed(const QVariant& error) const;
+	bool isMaxReached() const;
 	bool verify(const QVariant& error);
+
+	virtual bool verifyCondition(const QVariant& error) = 0;
 };
 
 } // quickstreams

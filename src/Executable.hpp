@@ -1,6 +1,7 @@
 #pragma once
 
 #include "StreamHandle.hpp"
+#include "Error.hpp"
 #include <QVariant>
 #include <QSharedPointer>
 
@@ -16,7 +17,7 @@ public:
 
 protected:
 	StreamHandle* _handle;
-	QSharedPointer<QVariant> _error;
+	Error _error;
 	Stream* _returnedStream;
 
 	void setHandle(StreamHandle* handle);

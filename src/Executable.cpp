@@ -1,10 +1,10 @@
 #include "Executable.hpp"
 #include "StreamHandle.hpp"
+#include "Error.hpp"
 #include <QVariant>
 
 quickstreams::Executable::Executable() :
 	_handle(nullptr),
-	_error(nullptr),
 	_returnedStream(nullptr)
 {}
 
@@ -13,12 +13,12 @@ void quickstreams::Executable::setHandle(StreamHandle* handle) {
 }
 
 void quickstreams::Executable::reset() {
-	_error.reset();
+	_error._obj.reset();
 	_returnedStream = nullptr;
 }
 
 bool quickstreams::Executable::hasFailed() const {
-	return _error != nullptr;
+	return !_error._obj.isNull();
 }
 
 bool quickstreams::Executable::hasReturnedStream() const {
@@ -26,8 +26,7 @@ bool quickstreams::Executable::hasReturnedStream() const {
 }
 
 QVariant quickstreams::Executable::getError() const {
-	if(_error.isNull()) return QVariant();
-	return *_error;
+	return QVariant::fromValue<Error>(_error);
 }
 
 quickstreams::Stream* quickstreams::Executable::stream() {
