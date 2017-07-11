@@ -26,6 +26,14 @@ private slots:
 	void failure_data_stdRuntimeError();
 	void failure_data_string();
 
+	// Retry operator tests
+	void retry_onCondition();
+	void retry_onCondition_false();
+	void retry_onCondition_maxReach();
+	void retry_onType();
+	void retry_onType_mismatchTypes();
+	void retry_onType_maxReach();
+
 	// Memory and state management tests
 	void sequenceInitialization();
 	void memory();

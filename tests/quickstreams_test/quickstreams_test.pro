@@ -19,7 +19,13 @@ SOURCES +=  \
     tests/memory.cpp \
     tests/sequenceInitialization.cpp \
     tests/failure_override.cpp \
-    tests/failure_sequenceHead.cpp
+    tests/failure_sequenceHead.cpp \
+    tests/retry_onType_mismatchTypes.cpp \
+    tests/retry_onType.cpp \
+    tests/retry_onCondition.cpp \
+    tests/retry_onCondition_false.cpp \
+    tests/retry_onCondition_maxReach.cpp \
+    tests/retry_onType_maxReached.cpp
 
 HEADERS += \
     Trigger.hpp \
