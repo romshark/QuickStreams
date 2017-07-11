@@ -7,7 +7,7 @@ void QuickStreamsTest::failure_data_string() {
 	Trigger cpFirst;
 	Trigger cpFailure;
 
-	QVariant receivedError;
+	Error receivedError;
 
 	auto firstStream = streams->create([&](
 		const StreamHandle& stream, const QVariant& data
@@ -19,7 +19,7 @@ void QuickStreamsTest::failure_data_string() {
 	});
 
 	auto failureStream = firstStream->failure([&](const QVariant& error) {
-		receivedError = error;
+		receivedError = error.value<Error>();
 		cpFailure.trigger();
 		return QVariant();
 	});
@@ -29,7 +29,8 @@ void QuickStreamsTest::failure_data_string() {
 	QVERIFY(cpFirst.wait(100));
 	QVERIFY(cpFailure.wait(100));
 
-	// Ensure the error received by the failure stream is null
+	// Ensure the error received by the failure stream is of type Exception
 	// because QString is not a supported error type
-	QCOMPARE(receivedError, QVariant());
+	QVERIFY(receivedError.is(exception::Exception::type()));
+	QCOMPARE(receivedError.message(), QString("something went wrong"));
 }

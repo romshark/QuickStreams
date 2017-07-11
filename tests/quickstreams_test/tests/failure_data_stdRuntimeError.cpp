@@ -6,7 +6,7 @@ void QuickStreamsTest::failure_data_stdRuntimeError() {
 	Trigger cpCreated;
 	Trigger cpFailure;
 
-	QVariant receivedError;
+	Error receivedError;
 
 	auto createdStream = streams->create([&](
 		const StreamHandle& stream, const QVariant& data
@@ -18,7 +18,7 @@ void QuickStreamsTest::failure_data_stdRuntimeError() {
 	});
 
 	auto failureStream = createdStream->failure([&](const QVariant& error) {
-		receivedError = error;
+		receivedError = error.value<Error>();
 		cpFailure.trigger();
 		return QVariant();
 	});
@@ -30,5 +30,9 @@ void QuickStreamsTest::failure_data_stdRuntimeError() {
 
 	// Ensure the error received by the failure stream
 	// is the same as the error thrown in the created stream
-	QCOMPARE(receivedError, QVariant("something went wrong"));
+	QVERIFY(receivedError.is(exception::RuntimeError::type()));
+	QCOMPARE(
+		receivedError.message(),
+		QString("something went wrong")
+	);
 }
