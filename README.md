@@ -3,7 +3,7 @@ An asynchronous programming library for the [QML](https://en.wikipedia.org/wiki/
 inspired by [Reactive Extensions](http://reactivex.io/),
 implementing the asynchronous streams paradigm - an advanced, yet simple, communication protocol for various application components.
 
-*First beta release, not yet production ready*
+*NOTE: This is a proof of concept implementation of asynchronous programming in streams. Keep in mind although the current stable release version 0.2.0 is already internally in use at [QBEON](https://qbeon.com) it's not yet officially production ready*
 
 ## Asynchronous Programming in Streams
 
